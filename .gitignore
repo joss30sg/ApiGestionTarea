@@ -1,0 +1,132 @@
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.vim/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# .NET
+bin/
+obj/
+dist/
+out/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+.vs/
+.vscode/
+appsettings.*.json
+*.log
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+
+# React Native
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+build/
+.gradle
+.jcf.xml
+local.properties
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Tests
+.coverage
+.pytest_cache/
+htmlcov/
+.nyc_output/
+coverage/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.tmp/
+tmp/
+temp/
+
+# Dependencies lock files (optional, depending on workflow)
+# package-lock.json
+# yarn.lock
+
+# IDE specific
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build output
+dist/
+build/
+coverage/
+
+# macOS specific
+.AppleDouble
+.LSOverride
+
+# Windows specific
+$RECYCLE.BIN/
+ehthumbs.db
+Thumbs.db

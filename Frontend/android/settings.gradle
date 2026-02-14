@@ -1,0 +1,8 @@
+rootProject.name = 'TaskMobileApp'
+def cliPlatformAndroidGradle = file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+if (cliPlatformAndroidGradle.exists()) {
+	apply from: cliPlatformAndroidGradle
+	applyNativeModulesSettingsGradle(settings)
+}
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')

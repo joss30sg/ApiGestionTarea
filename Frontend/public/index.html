@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Tareas - App</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #10b981;
+      color: white;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status.error {
+      background: #ef4444;
+    }
+
+    .status.loading {
+      background: #f59e0b;
+    }
+
+    .filters {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-group {
+      margin-bottom: 15px;
+    }
+
+    .filter-group label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button.filter-btn {
+      padding: 8px 16px;
+      border: 2px solid #ddd;
+      background: white;
+      color: #333;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    button.filter-btn:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    button.filter-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .tasks-container {
+      display: grid;
+      gap: 12px;
+    }
+
+    .task-card {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-left: 4px solid #667eea;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .task-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .task-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .task-footer {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge.status {
+      background: #e0e7ff;
+      color: #4f46e5;
+    }
+
+    .badge.status.pending {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .badge.status.in-progress {
+      background: #dbeafe;
+      color: #0284c7;
+    }
+
+    .badge.status.completed {
+      background: #d1fae5;
+      color: #059669;
+    }
+
+    .badge.priority {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .badge.priority.low {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .badge.priority.medium {
+      background: #fef08a;
+      color: #a16207;
+    }
+
+    .badge.priority.high {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .empty-state {
+      background: white;
+      padding: 40px 20px;
+      border-radius: 12px;
+      text-align: center;
+      color: #666;
+    }
+
+    .empty-state p {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .loading {
+      background: white;
+      padding: 40px 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .task-count {
+      color: #999;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .debug-info {
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      margin-top: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .debug-info .log-line {
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    .debug-info .error {
+      color: #ff6b6b;
+    }
+
+    .debug-info .success {
+      color: #51cf66;
+    }
+
+    .debug-info .info {
+      color: #74c0fc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>📋 Gestión de Tareas</h1>
+      <p>Mini App - React Native CLI</p>
+      <div id="status" class="status">🔄 Conectando...</div>
+      <div class="task-count" id="taskCount"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Estado</label>
+        <div class="filter-buttons">
+          <button class="filter-btn active" onclick="filterByState(null)">Todos</button>
+          <button class="filter-btn" onclick="filterByState('Pending')">Pendiente</button>
+          <button class="filter-btn" onclick="filterByState('InProgress')">En progreso</button>
+          <button class="filter-btn" onclick="filterByState('Completed')">Completada</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Prioridad</label>
+        <div class="filter-buttons">
+          <button class="filter-btn active" onclick="filterByPriority(null)">Todas</button>
+          <button class="filter-btn" onclick="filterByPriority('Low')">Baja</button>
+          <button class="filter-btn" onclick="filterByPriority('Medium')">Media</button>
+          <button class="filter-btn" onclick="filterByPriority('High')">Alta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div id="tasksContainer" class="tasks-container">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px;">Cargando tareas...</p>
+      </div>
+    </div>
+
+    <!-- Debug Info -->
+    <div class="debug-info" id="debugInfo" style="display:none;"></div>
+  </div>
+
+  <script>
+    let currentState = null;
+    let currentPriority = null;
+    const logs = [];
+
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      logs.push({ message, type, timestamp });
+      updateDebugInfo();
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    function updateDebugInfo() {
+      const debugInfo = document.getElementById('debugInfo');
+      debugInfo.innerHTML = logs.map(log => 
+        `<div class="log-line"><span class="${log.type}">[${log.type.toUpperCase()}]</span> ${log.timestamp} - ${log.message}</div>`
+      ).join('');
+    }
+
+    async function fetchTasks() {
+      try {
+        addLog('Iniciando búsqueda de tareas...', 'info');
+        
+        const params = new URLSearchParams();
+        if (currentState) params.append('state', currentState);
+        if (currentPriority) params.append('priority', currentPriority);
+
+        addLog(`URL: /api/proxy/tasks?${params.toString()}`, 'info');
+
+        const response = await fetch(`/api/proxy/tasks?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        addLog(`✓ Tareas obtenidas: ${data.items?.length || 0} de ${data.totalCount}`, 'success');
+
+        renderTasks(data.items || []);
+        updateTaskCount(data.totalCount);
+        updateStatus('Conectado', 'success');
+      } catch (error) {
+        addLog(`✗ Error: ${error.message}`, 'error');
+        renderError();
+        updateStatus('Error', 'error');
+      }
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById('tasksContainer');
+      
+      if (!tasks || tasks.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>📭 No hay tareas</p>
+            <p style="font-size: 12px;">Intenta cambiar los filtros</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = tasks.map(task => `
+        <div class="task-card">
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+          <div class="task-footer">
+            <span class="badge status ${getStatusClass(task.status)}">${getStatusLabel(task.status)}</span>
+            <span class="badge priority ${getPriorityClass(task.priority)}">${getPriorityLabel(task.priority)}</span>
+            <span style="color: #999; font-size: 12px; margin-left: auto;">
+              ${new Date(task.createdAt).toLocaleDateString('es-ES')}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderError() {
+      const container = document.getElementById('tasksContainer');
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>❌ Error al cargar tareas</p>
+          <p style="font-size: 12px;">Verifica que el Backend esté corriendo en http://localhost:5000</p>
+          <p style="font-size: 12px; margin-top: 10px; color: #999;">
+            <strong>Comando:</strong> cd Backend/TaskService.Api && dotnet run
+          </p>
+        </div>
+      `;
+    }
+
+    function filterByState(state) {
+      currentState = state;
+      document.querySelectorAll('[onclick*="filterByState"]').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      fetchTasks();
+    }
+
+    function filterByPriority(priority) {
+      currentPriority = priority;
+      document.querySelectorAll('[onclick*="filterByPriority"]').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      fetchTasks();
+    }
+
+    function updateStatus(text, type = 'success') {
+      const status = document.getElementById('status');
+      const icons = { success: '✅', error: '❌', loading: '🔄' };
+      status.textContent = `${icons[type]} ${text}`;
+      status.className = `status ${type === 'success' ? '' : type}`;
+    }
+
+    function updateTaskCount(count) {
+      document.getElementById('taskCount').textContent = `${count} tarea${count !== 1 ? 's' : ''}`;
+    }
+
+    function getStatusLabel(status) {
+      const labels = {
+        'Pending': 'Pendiente',
+        'InProgress': 'En progreso',
+        'Completed': 'Completada'
+      };
+      return labels[status] || status;
+    }
+
+    function getStatusClass(status) {
+      const classes = {
+        'Pending': 'pending',
+        'InProgress': 'in-progress',
+        'Completed': 'completed'
+      };
+      return classes[status] || '';
+    }
+
+    function getPriorityLabel(priority) {
+      const labels = {
+        'Low': 'Baja',
+        'Medium': 'Media',
+        'High': 'Alta'
+      };
+      return labels[priority] || priority;
+    }
+
+    function getPriorityClass(priority) {
+      const classes = {
+        'Low': 'low',
+        'Medium': 'medium',
+        'High': 'high'
+      };
+      return classes[priority] || '';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Cargar tareas al iniciar
+    window.addEventListener('load', () => {
+      addLog('App iniciada', 'success');
+      addLog('Backend: http://localhost:5000', 'info');
+      fetchTasks();
+      
+      // Recargar cada 30 segundos
+      setInterval(fetchTasks, 30000);
+    });
+  </script>
+</body>
+</html>
