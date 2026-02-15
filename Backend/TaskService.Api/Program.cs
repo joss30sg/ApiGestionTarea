@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using TaskService.Api.Middleware;
 using TaskService.Application.Interfaces;
 using TaskService.Application.Services;
@@ -64,9 +65,14 @@ builder.Services.AddSwaggerGen(options =>
     // Información de la API
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Task Service API",
+        Title = "📋 Task Service API",
         Version = "v1.0.0",
-        Description = "API para gestión de tareas personales"
+        Description = "API REST para gestión de tareas personales. Permite listar, filtrar y ver detalles de tareas.",
+        Contact = new OpenApiContact
+        {
+            Name = "Soporte",
+            Url = new Uri("https://github.com/Jossg36/ApiGestionTarea")
+        }
     });
 
     // Configurar seguridad API Key
@@ -75,7 +81,7 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Name = "X-API-Key",
         In = ParameterLocation.Header,
-        Description = "API Key - Valor: 123456"
+        Description = "⚠️ REQUERIDO: API Key para autenticación. Valor: **123456**"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -92,6 +98,10 @@ builder.Services.AddSwaggerGen(options =>
             new string[] { }
         }
     });
+
+    // Agregar ejemplos en las respuestas
+    options.SchemaFilter<SchemaExamplesFilter>();
+    options.OperationFilter<OperationExamplesFilter>();
 });
 
 var app = builder.Build();
@@ -201,5 +211,79 @@ void SeedDatabase(WebApplication app)
 
         db.Tasks.AddRange(tasks);
         db.SaveChanges();
+    }
+}
+
+// ====== FILTROS PERSONALIZADOS PARA SWAGGER ======
+
+/// <summary>
+/// Filtro para agregar ejemplos de respuesta en Swagger
+/// </summary>
+public class SchemaExamplesFilter : ISchemaFilter
+{
+    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+    {
+        if (context.Type.Name == "PagedResultDto")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["totalCount"] = new Microsoft.OpenApi.Any.OpenApiInteger(33),
+                ["pageNumber"] = new Microsoft.OpenApi.Any.OpenApiInteger(1),
+                ["pageSize"] = new Microsoft.OpenApi.Any.OpenApiInteger(10),
+                ["items"] = new Microsoft.OpenApi.Any.OpenApiArray
+                {
+                    new Microsoft.OpenApi.Any.OpenApiObject
+                    {
+                        ["id"] = new Microsoft.OpenApi.Any.OpenApiString("550e8400-e29b-41d4-a716-446655440000"),
+                        ["title"] = new Microsoft.OpenApi.Any.OpenApiString("Implementar autenticación OAuth"),
+                        ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Investigar y configurar OAuth2 para la aplicación"),
+                        ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
+                        ["status"] = new Microsoft.OpenApi.Any.OpenApiString("Pending"),
+                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z")
+                    },
+                    new Microsoft.OpenApi.Any.OpenApiObject
+                    {
+                        ["id"] = new Microsoft.OpenApi.Any.OpenApiString("550e8400-e29b-41d4-a716-446655440001"),
+                        ["title"] = new Microsoft.OpenApi.Any.OpenApiString("Integración con Stripe"),
+                        ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Implementar pagos en línea"),
+                        ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
+                        ["status"] = new Microsoft.OpenApi.Any.OpenApiString("InProgress"),
+                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-10T08:15:00Z")
+                    }
+                }
+            };
+        }
+        else if (context.Type.Name == "TaskDtoResponse")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["id"] = new Microsoft.OpenApi.Any.OpenApiString("550e8400-e29b-41d4-a716-446655440000"),
+                ["title"] = new Microsoft.OpenApi.Any.OpenApiString("Implementar autenticación OAuth"),
+                ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Investigar y configurar OAuth2 para la aplicación"),
+                ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
+                ["status"] = new Microsoft.OpenApi.Any.OpenApiString("Pending"),
+                ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z")
+            };
+        }
+    }
+}
+
+/// <summary>
+/// Filtro para mejorar descripción de operaciones en Swagger
+/// </summary>
+public class OperationExamplesFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        if (operation.OperationId == "GetAllTasks")
+        {
+            operation.Description = "📌 Obtiene un listado de tareas con opciones de filtrado por estado, prioridad y paginación.";
+            operation.Summary = "Listar tareas";
+        }
+        else if (operation.OperationId == "GetTaskById")
+        {
+            operation.Description = "📌 Obtiene los detalles completos de una tarea específica por su ID.";
+            operation.Summary = "Obtener detalle de tarea";
+        }
     }
 }
