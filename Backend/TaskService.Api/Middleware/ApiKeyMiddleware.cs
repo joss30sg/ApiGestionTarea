@@ -16,11 +16,15 @@ public class ApiKeyMiddleware
     {
         // Permitir acceso a Swagger y rutas públicas sin API Key
         var path = context.Request.Path.Value ?? "";
+        
+        // Rutas públicas (no requieren API Key)
         if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) || 
             path.StartsWith("/swagger-ui", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/api/swagger", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("swagger.json", StringComparison.OrdinalIgnoreCase) ||
             path == "/" ||
-            path == "")
+            path == "" ||
+            path == "/health")
         {
             await _next(context);
             return;
