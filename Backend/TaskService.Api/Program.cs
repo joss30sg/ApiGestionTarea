@@ -277,13 +277,65 @@ public class OperationExamplesFilter : IOperationFilter
     {
         if (operation.OperationId == "GetAllTasks")
         {
-            operation.Description = "📌 Obtiene un listado de tareas con opciones de filtrado por estado, prioridad y paginación.";
-            operation.Summary = "Listar tareas";
+            operation.Description = @"📌 Obtiene un listado paginado de tareas con opciones de filtrado.
+
+### Casos de Uso:
+- **GET /api/tasks** → Obtiene todas las tareas (página 1, 10 items)
+- **GET /api/tasks?state=Pending** → Solo tareas pendientes
+- **GET /api/tasks?priority=High** → Solo tareas de alta prioridad
+- **GET /api/tasks?state=Pending&priority=High** → Tareas pendientes de alta prioridad
+- **GET /api/tasks?pageNumber=2&pageSize=5** → Segunda página con 5 tareas
+
+### Filtros Disponibles:
+- `state`: Pending, InProgress, Completed
+- `priority`: Low, Medium, High
+- `pageNumber`: Número de página (mín: 1)
+- `pageSize`: Tareas por página (mín: 1, máx: 50)
+
+### Ejemplo de Respuesta (200 OK):
+```json
+{
+  ""totalCount"": 33,
+  ""pageNumber"": 1,
+  ""pageSize"": 10,
+  ""items"": [
+    {
+      ""id"": ""550e8400-e29b-41d4-a716-446655440000"",
+      ""title"": ""Implementar autenticación OAuth"",
+      ""description"": ""Investigar y configurar OAuth2"",
+      ""priority"": ""High"",
+      ""status"": ""Pending"",
+      ""createdAt"": ""2026-02-15T10:30:00Z""
+    }
+  ]
+}
+```";
+            operation.Summary = "📋 Listar tareas (con filtros)";
         }
         else if (operation.OperationId == "GetTaskById")
         {
-            operation.Description = "📌 Obtiene los detalles completos de una tarea específica por su ID.";
-            operation.Summary = "Obtener detalle de tarea";
+            operation.Description = @"📌 Obtiene los detalles completos de una tarea específica.
+
+### Casos de Uso:
+- **GET /api/tasks/550e8400-e29b-41d4-a716-446655440000** → Obtiene una tarea específica
+
+### Errores Posibles:
+- `400 Bad Request`: ID no es un GUID válido
+- `404 Not Found`: La tarea no existe o fue eliminada
+- `401 Unauthorized`: Falta el header X-API-Key
+
+### Ejemplo de Respuesta (200 OK):
+```json
+{
+  ""id"": ""550e8400-e29b-41d4-a716-446655440000"",
+  ""title"": ""Implementar autenticación OAuth"",
+  ""description"": ""Investigar y configurar OAuth2 para la aplicación"",
+  ""priority"": ""High"",
+  ""status"": ""Pending"",
+  ""createdAt"": ""2026-02-15T10:30:00Z""
+}
+```";
+            operation.Summary = "🔍 Obtener detalle de tarea";
         }
     }
 }
