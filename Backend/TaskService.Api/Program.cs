@@ -67,12 +67,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "📋 Task Service API",
         Version = "v1.0.0",
-        Description = "API REST para gestión de tareas personales. Permite listar, filtrar y ver detalles de tareas.",
-        Contact = new OpenApiContact
-        {
-            Name = "Soporte",
-            Url = new Uri("https://github.com/Jossg36/ApiGestionTarea")
-        }
+        Description = "API REST para gestión de tareas personales. Permite listar, filtrar y ver detalles de tareas."
     });
 
     // Configurar seguridad API Key
