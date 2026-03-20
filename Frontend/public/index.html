@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API de Gestión de Tareas</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .task-card {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-left: 4px solid #667eea;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .task-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .task-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .task-footer {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge.status {
+      background: #e0e7ff;
+      color: #4f46e5;
+    }
+
+    .badge.status.pending {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .badge.status.in-progress {
+      background: #dbeafe;
+      color: #0284c7;
+    }
+
+    .badge.status.completed {
+      background: #d1fae5;
+      color: #059669;
+    }
+
+    .badge.priority {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .badge.priority.low {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .badge.priority.medium {
+      background: #fef08a;
+      color: #a16207;
+    }
+
+    .badge.priority.high {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .task-count {
+      color: #999;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    /* ===== CALENDAR STYLES ===== */
+    .calendar-summary {
+      display: flex;
+      justify-content: space-around;
+      background: white;
+      border-radius: 12px;
+      padding: 16px 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 6px 14px;
+      border-radius: 20px;
+      transition: background 0.2s, transform 0.15s;
+      user-select: none;
+    }
+    .summary-item:hover { background: #f5f5f7; transform: scale(1.03); }
+    .summary-item.active { background: #e8e8ed; }
+    .summary-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .summary-dot.pending   { background: #f59e0b; }
+    .summary-dot.inprogress{ background: #0a84ff; }
+    .summary-dot.completed { background: #34c759; }
+    .summary-label { font-size: 13px; font-weight: 600; color: #333; }
+    .summary-count {
+      font-size: 14px;
+      font-weight: 800;
+      color: #444;
+      background: #f0f0f5;
+      border-radius: 10px;
+      padding: 2px 8px;
+      min-width: 26px;
+      text-align: center;
+    }
+
+    .month-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      border-radius: 12px 12px 0 0;
+      padding: 14px 18px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .month-nav button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: #f5f5f7;
+      font-size: 24px;
+      cursor: pointer;
+      color: #667eea;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .month-nav button:hover { background: #e8e8ed; }
+    .month-title { font-size: 18px; font-weight: 700; color: #333; }
+
+    .week-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      background: white;
+      padding: 10px 0;
+      border-bottom: 1px solid #e5e5e9;
+    }
+    .week-header span {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      background: white;
+      border-radius: 0 0 12px 12px;
+      padding-bottom: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .day-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      min-height: 56px;
+      cursor: pointer;
+      border-radius: 8px;
+      margin: 2px;
+      transition: background 0.15s;
+    }
+    .day-cell:hover { background: #f5f5f7; }
+    .day-cell.today { background: rgba(102,126,234,0.08); }
+    .day-cell.selected { background: rgba(102,126,234,0.2); }
+    .day-cell .day-num {
+      font-size: 15px;
+      font-weight: 500;
+      color: #333;
+    }
+    .day-cell.today .day-num { font-weight: 700; color: #667eea; }
+    .day-cell.selected .day-num { font-weight: 700; color: #667eea; }
+    .day-cell .dots {
+      display: flex;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .day-cell .dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .selected-day-section {
+      margin-top: 20px;
+    }
+    .selected-day-title {
+      color: white;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .no-tasks-msg {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+    .status-group-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-group-title .sg-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-group-title .sg-count {
+      font-weight: 400;
+      opacity: 0.8;
+      font-size: 13px;
+    }
+
+    /* ===== BOTÓN FLOTANTE CREAR ===== */
+    .fab-add {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      font-size: 30px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(102,126,234,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 900;
+    }
+    .fab-add:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(102,126,234,0.6); }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 28px;
+      width: 90%;
+      max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: modalIn 0.2s ease-out;
+    }
+    @keyframes modalIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal h2 { margin-bottom: 20px; color: #333; font-size: 20px; }
+    .modal label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 4px; margin-top: 14px; }
+    .modal input, .modal textarea, .modal select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .modal input:focus, .modal textarea:focus, .modal select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .modal textarea { resize: vertical; min-height: 70px; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+      justify-content: flex-end;
+    }
+    .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s, transform 0.1s; }
+    .btn:active { transform: scale(0.97); }
+    .btn-cancel { background: #f0f0f5; color: #666; }
+    .btn-cancel:hover { background: #e5e5ea; }
+    .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-danger { background: #ff3b30; color: white; }
+    .btn-danger:hover { background: #e0342b; }
+
+    /* ===== TASK CARD ACTIONS ===== */
+    .task-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .task-actions button {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .task-actions button:active { transform: scale(0.95); }
+    .btn-complete { background: #d1fae5; color: #059669; }
+    .btn-complete:hover { background: #a7f3d0; }
+    .btn-edit { background: #dbeafe; color: #0284c7; }
+    .btn-edit:hover { background: #bfdbfe; }
+    .btn-delete { background: #fee2e2; color: #dc2626; }
+    .btn-delete:hover { background: #fecaca; }
+
+    /* ===== CONFIRM DIALOG ===== */
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+    }
+    .confirm-overlay.show { display: flex; }
+    .confirm-box {
+      background: white;
+      border-radius: 14px;
+      padding: 24px;
+      width: 90%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .confirm-box p { font-size: 15px; color: #333; margin-bottom: 20px; line-height: 1.5; }
+    .confirm-box .modal-actions { justify-content: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+      <div class="header">
+        <h1>⚡ API de Gestión de Tareas</h1>
+        <div class="task-count" id="calTaskCount"></div>
+      </div>
+
+      <!-- Resumen de estados -->
+      <div class="calendar-summary" id="calSummary"></div>
+
+      <!-- Navegación de mes -->
+      <div class="month-nav">
+        <button onclick="calPrevMonth()">‹</button>
+        <span class="month-title" id="calMonthTitle"></span>
+        <button onclick="calNextMonth()">›</button>
+      </div>
+
+      <!-- Encabezados de día -->
+      <div class="week-header">
+        <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span>
+        <span>Jue</span><span>Vie</span><span>Sáb</span>
+      </div>
+
+      <!-- Grid del calendario -->
+      <div class="calendar-grid" id="calGrid"></div>
+
+      <!-- Tareas del día seleccionado -->
+      <div class="selected-day-section" id="calDaySection" style="display:none;">
+        <div class="selected-day-title" id="calDayTitle"></div>
+        <div id="calDayTasks"></div>
+      </div>
+
+  </div><!-- end container -->
+
+  <!-- Botón flotante para crear tarea -->
+  <button class="fab-add" onclick="openCreateModal()" title="Nueva tarea">＋</button>
+
+  <!-- Modal Crear/Editar Tarea -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal">
+      <h2 id="modalTitle">Nueva Tarea</h2>
+      <input type="hidden" id="modalTaskId" value="">
+      <label for="modalTaskTitle">Título *</label>
+      <input type="text" id="modalTaskTitle" placeholder="Ej: Revisar documentacion" maxlength="200">
+      <label for="modalTaskDesc">Descripción</label>
+      <textarea id="modalTaskDesc" placeholder="Descripción de la tarea..." maxlength="2000"></textarea>
+      <label for="modalTaskPriority">Prioridad</label>
+      <select id="modalTaskPriority">
+        <option value="Low">Baja</option>
+        <option value="Medium" selected>Media</option>
+        <option value="High">Alta</option>
+      </select>
+      <label for="modalTaskState">Estado</label>
+      <select id="modalTaskState">
+        <option value="Pending">Pendiente</option>
+        <option value="InProgress">En Progreso</option>
+        <option value="Completed">Completada</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" id="modalSaveBtn" onclick="saveTask()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Dialog -->
+  <div class="confirm-overlay" id="confirmDialog">
+    <div class="confirm-box">
+      <p id="confirmMsg">¿Estás seguro de eliminar esta tarea?</p>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeConfirm()">Cancelar</button>
+        <button class="btn btn-danger" id="confirmYesBtn" onclick="confirmAction()">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===================================
+       VARIABLES GLOBALES
+    =================================== */
+    const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const STATUS_COLORS = { Pending: '#f59e0b', InProgress: '#0a84ff', Completed: '#34c759' };
+    const STATUS_LABELS = { Pending: 'Pendiente', InProgress: 'En Progreso', Completed: 'Completada' };
+    const STATUS_ICONS = { Pending: '⏳', InProgress: '🔧', Completed: '✅' };
+    let calYear = new Date().getFullYear();
+    let calMonth = new Date().getMonth();
+    let calSelectedDate = null;
+    let calAllTasks = [];
+    let calStatusFilter = null; // null = todos, o 'Pending'|'InProgress'|'Completed'
+    let pendingConfirmAction = null; // callback para confirm dialog
+
+    /* ===================================
+       CALENDAR VIEW
+    =================================== */
+    async function fetchCalendarTasks() {
+      try {
+        const response = await fetch('/api/proxy/tasks?pageSize=50');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        calAllTasks = data.items || [];
+        document.getElementById('calTaskCount').textContent =
+          `${calAllTasks.length} tarea${calAllTasks.length !== 1 ? 's' : ''} registrada${calAllTasks.length !== 1 ? 's' : ''}`;
+        // Posicionar en el mes de la primera tarea
+        if (calAllTasks.length > 0) {
+          const firstDate = new Date(calAllTasks[0].createdAt);
+          if (!isNaN(firstDate.getTime())) {
+            calYear = firstDate.getFullYear();
+            calMonth = firstDate.getMonth();
+          }
+        }
+        renderCalSummary();
+        renderCalGrid();
+        if (calSelectedDate) renderCalDay();
+      } catch (err) {
+        calAllTasks = [];
+        document.getElementById('calTaskCount').textContent = 'Error al cargar';
+      }
+    }
+
+    function toDateKey(dateStr) {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function renderCalSummary() {
+      const counts = { Pending: 0, InProgress: 0, Completed: 0 };
+      calAllTasks.forEach(t => { if (t.status in counts) counts[t.status]++; });
+      document.getElementById('calSummary').innerHTML = ['Pending','InProgress','Completed'].map(s =>
+        `<div class="summary-item${calStatusFilter === s ? ' active' : ''}" onclick="toggleStatusFilter('${s}')">
+          <span class="summary-dot ${s.toLowerCase()}"></span>
+          <span class="summary-label">${STATUS_LABELS[s]}</span>
+          <span class="summary-count">${counts[s]}</span>
+        </div>`
+      ).join('');
+    }
+
+    function toggleStatusFilter(status) {
+      calStatusFilter = calStatusFilter === status ? null : status;
+      renderCalSummary();
+      renderCalGrid();
+      if (calSelectedDate) renderCalDay();
+    }
+
+    function getFilteredTasks() {
+      if (!calStatusFilter) return calAllTasks;
+      return calAllTasks.filter(t => t.status === calStatusFilter);
+    }
+
+    function renderCalGrid() {
+      document.getElementById('calMonthTitle').textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+
+      const filtered = getFilteredTasks();
+
+      // Agrupar tareas por fecha
+      const tasksByDate = {};
+      const statusByDate = {};
+      filtered.forEach(t => {
+        const key = toDateKey(t.createdAt);
+        if (!key) return;
+        if (!tasksByDate[key]) tasksByDate[key] = [];
+        tasksByDate[key].push(t);
+        if (!statusByDate[key]) statusByDate[key] = new Set();
+        statusByDate[key].add(t.status);
+      });
+
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      const firstDay = new Date(calYear, calMonth, 1).getDay();
+      const now = new Date();
+      const todayKey = toDateKey(now.toISOString());
+
+      let html = '';
+      // Espacios vacíos
+      for (let i = 0; i < firstDay; i++) {
+        html += '<div class="day-cell"></div>';
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isToday = key === todayKey;
+        const isSelected = key === calSelectedDate;
+        const statuses = statusByDate[key];
+        let cls = 'day-cell';
+        if (isToday) cls += ' today';
+        if (isSelected) cls += ' selected';
+
+        let dots = '';
+        if (statuses) {
+          dots = '<div class="dots">' +
+            Array.from(statuses).map(s =>
+              `<span style="background:${STATUS_COLORS[s] || '#999'}"></span>`
+            ).join('') + '</div>';
+        }
+
+        html += `<div class="${cls}" onclick="calSelectDay('${key}')">
+          <span class="day-num">${d}</span>
+          ${dots}
+        </div>`;
+      }
+      document.getElementById('calGrid').innerHTML = html;
+    }
+
+    function calSelectDay(dateKey) {
+      calSelectedDate = dateKey;
+      renderCalGrid();
+      renderCalDay();
+    }
+
+    function renderCalDay() {
+      const section = document.getElementById('calDaySection');
+      section.style.display = 'block';
+
+      const [y, m, d] = calSelectedDate.split('-').map(Number);
+      document.getElementById('calDayTitle').textContent =
+        `${d} de ${MONTH_NAMES[m-1]} ${y}`;
+
+      const filtered = getFilteredTasks();
+      const dayTasks = filtered.filter(t => toDateKey(t.createdAt) === calSelectedDate);
+      const container = document.getElementById('calDayTasks');
+
+      if (dayTasks.length === 0) {
+        container.innerHTML = '<div class="no-tasks-msg">Sin tareas en este día</div>';
+        return;
+      }
+
+      // Agrupar por estado
+      const groups = {};
+      ['Pending', 'InProgress', 'Completed'].forEach(s => { groups[s] = []; });
+      dayTasks.forEach(t => {
+        if (groups[t.status]) groups[t.status].push(t);
+      });
+
+      let html = '';
+      ['Pending', 'InProgress', 'Completed'].forEach(s => {
+        if (groups[s].length === 0) return;
+        html += `<div class="status-group-title">
+          <span class="sg-dot" style="background:${STATUS_COLORS[s]}"></span>
+          ${STATUS_ICONS[s]} ${STATUS_LABELS[s]}
+          <span class="sg-count">(${groups[s].length})</span>
+        </div>`;
+        html += groups[s].map(task => `
+          <div class="task-card" style="margin-bottom:10px; border-left-color:${STATUS_COLORS[task.status]};">
+            <div class="task-title">${escapeHtml(task.title)}</div>
+            ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+            <div class="task-footer">
+              <span class="badge status ${getStatusClass(task.status)}">${getStatusLabel(task.status)}</span>
+              <span class="badge priority ${getPriorityClass(task.priority)}">${getPriorityLabel(task.priority)}</span>
+            </div>
+            <div class="task-actions">
+              ${task.status !== 'Completed' ? `<button class="btn-complete" onclick="markComplete('${task.id}')">✅ Completar</button>` : ''}
+              <button class="btn-edit" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+              <button class="btn-delete" onclick="confirmDelete('${task.id}')">🗑️ Eliminar</button>
+            </div>
+          </div>
+        `).join('');
+      });
+
+      container.innerHTML = html;
+    }
+
+    function calPrevMonth() {
+      if (calMonth === 0) { calMonth = 11; calYear--; }
+      else calMonth--;
+      calSelectedDate = null;
+      document.getElementById('calDaySection').style.display = 'none';
+      renderCalGrid();
+    }
+
+    function calNextMonth() {
+      if (calMonth === 11) { calMonth = 0; calYear++; }
+      else calMonth++;
+      calSelectedDate = null;
+      document.getElementById('calDaySection').style.display = 'none';
+      renderCalGrid();
+    }
+
+    /* ===================================
+       HELPERS
+    =================================== */
+    function getStatusLabel(status) {
+      const labels = { 'Pending': 'Pendiente', 'InProgress': 'En progreso', 'Completed': 'Completada' };
+      return labels[status] || status;
+    }
+
+    function getStatusClass(status) {
+      const classes = { 'Pending': 'pending', 'InProgress': 'in-progress', 'Completed': 'completed' };
+      return classes[status] || '';
+    }
+
+    function getPriorityLabel(priority) {
+      const labels = { 'Low': 'Baja', 'Medium': 'Media', 'High': 'Alta' };
+      return labels[priority] || priority;
+    }
+
+    function getPriorityClass(priority) {
+      const classes = { 'Low': 'low', 'Medium': 'medium', 'High': 'high' };
+      return classes[priority] || '';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /* ===================================
+       CRUD FUNCTIONS
+    =================================== */
+    function openCreateModal() {
+      document.getElementById('modalTitle').textContent = 'Nueva Tarea';
+      document.getElementById('modalTaskId').value = '';
+      document.getElementById('modalTaskTitle').value = '';
+      document.getElementById('modalTaskDesc').value = '';
+      document.getElementById('modalTaskPriority').value = 'Medium';
+      document.getElementById('modalTaskState').value = 'Pending';
+      document.getElementById('modalSaveBtn').textContent = 'Crear';
+      document.getElementById('taskModal').classList.add('show');
+    }
+
+    function openEditModal(taskId) {
+      const task = calAllTasks.find(t => t.id === taskId);
+      if (!task) return;
+      document.getElementById('modalTitle').textContent = 'Editar Tarea';
+      document.getElementById('modalTaskId').value = task.id;
+      document.getElementById('modalTaskTitle').value = task.title;
+      document.getElementById('modalTaskDesc').value = task.description || '';
+      document.getElementById('modalTaskPriority').value = task.priority;
+      document.getElementById('modalTaskState').value = task.status;
+      document.getElementById('modalSaveBtn').textContent = 'Actualizar';
+      document.getElementById('taskModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('taskModal').classList.remove('show');
+    }
+
+    async function saveTask() {
+      const id = document.getElementById('modalTaskId').value;
+      const title = document.getElementById('modalTaskTitle').value.trim();
+      const description = document.getElementById('modalTaskDesc').value.trim();
+      const priority = document.getElementById('modalTaskPriority').value;
+      const state = document.getElementById('modalTaskState').value;
+
+      if (!title) {
+        alert('El título es obligatorio.');
+        return;
+      }
+
+      const body = { title, description, priority, state };
+      try {
+        let response;
+        if (id) {
+          response = await fetch(`/api/proxy/tasks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+        } else {
+          response = await fetch('/api/proxy/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+        }
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Error HTTP ${response.status}`);
+        }
+
+        closeModal();
+        await fetchCalendarTasks();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function markComplete(taskId) {
+      const task = calAllTasks.find(t => t.id === taskId);
+      if (!task) return;
+      try {
+        const body = {
+          title: task.title,
+          description: task.description || '',
+          priority: task.priority,
+          state: 'Completed'
+        };
+        const response = await fetch(`/api/proxy/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
+        await fetchCalendarTasks();
+      } catch (err) {
+        alert('Error al completar: ' + err.message);
+      }
+    }
+
+    function confirmDelete(taskId) {
+      document.getElementById('confirmMsg').textContent = '¿Estás seguro de eliminar esta tarea? Esta acción no se puede deshacer.';
+      pendingConfirmAction = () => deleteTask(taskId);
+      document.getElementById('confirmDialog').classList.add('show');
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirmDialog').classList.remove('show');
+      pendingConfirmAction = null;
+    }
+
+    function confirmAction() {
+      if (pendingConfirmAction) pendingConfirmAction();
+      closeConfirm();
+    }
+
+    async function deleteTask(taskId) {
+      try {
+        const response = await fetch(`/api/proxy/tasks/${taskId}`, { method: 'DELETE' });
+        if (!response.ok && response.status !== 204)
+          throw new Error(`Error HTTP ${response.status}`);
+        await fetchCalendarTasks();
+      } catch (err) {
+        alert('Error al eliminar: ' + err.message);
+      }
+    }
+
+    /* ===================================
+       INICIALIZACIÓN
+    =================================== */
+    window.addEventListener('load', () => {
+      fetchCalendarTasks();
+      // Auto-refresh cada 30 segundos
+      setInterval(fetchCalendarTasks, 30000);
+    });
+  </script>
+</body>
+</html>

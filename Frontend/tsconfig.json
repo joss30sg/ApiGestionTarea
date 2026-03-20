@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "jsx": "react-native",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": [
+      "jest",
+      "react-native",
+      "node"
+    ],
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types",
+      "./node_modules/@testing-library"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@testing-library/react-native": [
+        "./node_modules/@testing-library/react-native/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "src/types",
+    "index.js",
+    "jest.setup.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "src/web"
+  ],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
+  "extends": "expo/tsconfig.base"
+}
