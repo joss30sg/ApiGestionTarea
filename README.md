@@ -332,14 +332,131 @@ ApiGestionTarea/
 
 ## Tecnologías usadas
 
-| | Tecnología |
-|-|-----------|
-| Backend | .NET 8, ASP.NET Core, EF Core InMemory |
-| Frontend | React 18, TypeScript, Vite |
-| Servidor | Express.js |
-| Auth | JWT + API Key |
-| Tests | xUnit + Jest |
-| Logging | Serilog |
+| Capa | Tecnología | Versión |
+|------|-----------|---------|
+| Backend | ASP.NET Core, C# | .NET 8 |
+| ORM | Entity Framework Core (InMemory) | 8.0 |
+| Autenticación | JWT Bearer + API Key | — |
+| Rate Limiting | System.Threading.RateLimiting | 8.0 |
+| Logging | Serilog (Console + File) | 8.0.3 |
+| Frontend | React, TypeScript | 18, 5.3 |
+| Bundler | Vite | 8.0 |
+| Servidor Web | Express.js | 5.x |
+| Tiempo real | Server-Sent Events (SSE) | — |
+| Tests Backend | xUnit | — |
+| Tests Frontend | Jest | — |
+| Móvil | React Native | 0.73 |
+
+---
+
+## Arquitectura
+
+El backend sigue **Clean Architecture** (arquitectura limpia). Está dividido en 4 capas donde las dependencias siempre apuntan hacia adentro:
+
+```
+┌─────────────────────────────────────────────┐
+│  TaskService.Api         (Capa HTTP)        │  ← Controladores, Middleware
+│  ┌─────────────────────────────────────────┐│
+│  │  TaskService.Application (Lógica)       ││  ← Servicios, DTOs, Interfaces
+│  │  ┌─────────────────────────────────────┐││
+│  │  │  TaskService.Infrastructure (Datos) │││  ← Repositorio, DbContext
+│  │  │  ┌─────────────────────────────────┐│││
+│  │  │  │  TaskService.Domain (Centro)    ││││  ← Entidades, Enums
+│  │  │  └─────────────────────────────────┘│││
+│  │  └─────────────────────────────────────┘││
+│  └─────────────────────────────────────────┘│
+└─────────────────────────────────────────────┘
+```
+
+**¿Cómo fluye una petición?**
+
+```
+Cliente → Controller → Service → Repository → Base de datos
+                ↓            ↓           ↓
+          ITaskService  ITaskRepository  AppDbContext
+         (abstracción)  (abstracción)    (EF Core)
+```
+
+El Controller no conoce la base de datos. El Service no sabe si usas SQL Server o InMemory. Cada capa solo conoce la capa inmediata inferior a través de interfaces.
+
+---
+
+## Patrones de diseño
+
+| Patrón | Dónde se usa | Para qué sirve |
+|--------|-------------|-----------------|
+| **Repository** | `ITaskRepository` / `TaskRepository` | Separa la lógica de negocio del acceso a datos. Puedes cambiar de InMemory a SQL Server sin tocar el servicio |
+| **Dependency Injection** | `Program.cs` → `AddScoped<ITaskService>()` | Los objetos reciben sus dependencias en vez de crearlas. Facilita testing y desacoplamiento |
+| **Service Layer** | `ITaskService` / `TaskService` | Centraliza la lógica de negocio en un solo lugar, separada del controlador HTTP |
+| **DTO (Data Transfer Object)** | `TaskDto`, `TaskCreateDto` | Controla qué datos se exponen al cliente. La entidad interna nunca sale directamente |
+| **Middleware** | `ApiKeyMiddleware` | Intercepta peticiones HTTP antes de llegar al controlador (autenticación, logging) |
+| **Domain Model** | `TaskItem` con validaciones | La entidad tiene su propia lógica (validación XSS, concurrencia) en vez de ser solo datos |
+
+---
+
+## Principios SOLID
+
+### S — Responsabilidad Única
+
+Cada clase tiene una sola razón para cambiar:
+
+| Clase | Su única responsabilidad |
+|-------|-------------------------|
+| `TasksController` | Recibe peticiones HTTP y devuelve respuestas |
+| `TaskService` | Ejecuta la lógica de negocio (validar, transformar) |
+| `TaskRepository` | Lee y escribe en la base de datos |
+| `TaskItem` | Representa una tarea con sus reglas de dominio |
+| `ApiKeyMiddleware` | Valida la autenticación |
+
+### O — Abierto/Cerrado
+
+El código está **abierto a extensión** pero **cerrado a modificación**:
+
+- Para cambiar de base de datos (ej. InMemory → SQL Server), creas una nueva clase que implemente `ITaskRepository`. No necesitas modificar `TaskService` ni el controlador.
+- Para agregar un nuevo tipo de autenticación, creas un nuevo middleware sin tocar los existentes.
+
+### L — Sustitución de Liskov
+
+Cualquier implementación de una interfaz puede reemplazar a otra sin romper el código:
+
+```csharp
+// El controlador funciona igual con cualquier implementación de ITaskService
+public TasksController(ITaskService service) { _service = service; }
+
+// En tests puedes pasar un mock; en producción, la implementación real
+```
+
+### I — Segregación de Interfaces
+
+Las interfaces son pequeñas y específicas. `ITaskRepository` solo define 5 métodos (los que realmente se usan). No obliga a implementar operaciones innecesarias:
+
+```csharp
+public interface ITaskRepository
+{
+    Task<PagedResult<TaskItem>> GetPagedAsync(...);
+    Task<TaskItem> GetByIdAsync(Guid id);
+    Task<TaskItem> AddAsync(TaskItem task);
+    Task UpdateAsync(TaskItem task);
+    Task<bool> DeleteAsync(Guid id);
+}
+```
+
+### D — Inversión de Dependencias
+
+Las capas de alto nivel dependen de **abstracciones** (interfaces), no de implementaciones concretas:
+
+```csharp
+// ✅ TaskService depende de ITaskRepository (abstracción)
+public class TaskService : ITaskService
+{
+    private readonly ITaskRepository _repository;  // interfaz, no clase concreta
+}
+
+// ✅ La implementación concreta se conecta en Program.cs
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+```
+
+Esto permite cambiar la base de datos, el servicio o el repositorio sin afectar las demás capas.
 
 ---
 
