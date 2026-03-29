@@ -56,7 +56,15 @@ public class TaskRepository : ITaskRepository
     public async Task UpdateAsync(TaskItem task)
     {
         _context.Tasks.Update(task);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new InvalidOperationException(
+                "Conflicto de concurrencia: la tarea fue modificada por otro usuario. Recargue los datos e intente nuevamente.");
+        }
     }
 
     public async Task<bool> DeleteAsync(Guid id)

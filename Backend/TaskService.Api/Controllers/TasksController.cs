@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
 using TaskService.Application.Interfaces;
 using TaskService.Application.DTOs;
 using TaskService.Application.Common;
@@ -21,14 +20,16 @@ namespace TaskService.Api.Controllers;
 [ApiController]
 [Route("api/tasks")]
 [Produces("application/json")]
-// [RequireRateLimiting("tasks-api")] // Temporarily disabled for execution
+[Consumes("application/json")]
 public class TasksController : ControllerBase
 {
     private readonly ITaskService _service;
+    private readonly ILogger<TasksController> _logger;
 
-    public TasksController(ITaskService service)
+    public TasksController(ITaskService service, ILogger<TasksController> logger)
     {
         _service = service;
+        _logger = logger;
     }
 
     /// <summary>
@@ -67,16 +68,21 @@ public class TasksController : ControllerBase
             // Obtener tareas de la base de datos
             var result = await _service.GetTasksAsync(validState, validPriority, pageNumber, validPageSize);
 
+            _logger.LogInformation("Tareas obtenidas: {Count}/{Total} (página {Page}, filtros: state={State}, priority={Priority})",
+                result.Items.Count(), result.TotalCount, pageNumber, state, priority);
+
             // Convertir a respuesta
             var response = ToPagedResponse(result);
             return Ok(response);
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning("Validación fallida en GetAllTasks: {Error}", ex.Message);
             return BadRequest(new { error = ex.Message, code = "VALIDATION_ERROR" });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado en GetAllTasks");
             return StatusCode(500, new { error = "Error interno del servidor", code = "INTERNAL_ERROR" });
         }
     }
@@ -116,6 +122,7 @@ public class TasksController : ControllerBase
             var task = await _service.GetByIdAsync(id);
             if (task is null) 
             {
+                _logger.LogWarning("Tarea no encontrada: {TaskId}", id);
                 return NotFound(new 
                 { 
                     error = "Tarea no encontrada. Es posible que haya sido eliminada.",
@@ -129,10 +136,12 @@ public class TasksController : ControllerBase
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning("Validación fallida en GetTaskById({TaskId}): {Error}", id, ex.Message);
             return BadRequest(new { error = ex.Message, code = "VALIDATION_ERROR" });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado en GetTaskById({TaskId})", id);
             return StatusCode(500, new { error = "Error interno del servidor", code = "INTERNAL_ERROR" });
         }
     }
@@ -153,14 +162,17 @@ public class TasksController : ControllerBase
 
             var created = await _service.CreateAsync(dto);
             var response = ToTaskResponse(created);
+            _logger.LogInformation("Tarea creada: {TaskId} - {Title}", response.Id, dto.Title);
             return CreatedAtAction(nameof(GetTaskById), new { id = response.Id }, response);
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning("Validación fallida en CreateTask: {Error}", ex.Message);
             return BadRequest(new { error = ex.Message, code = "VALIDATION_ERROR" });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado en CreateTask");
             return StatusCode(500, new { error = "Error interno del servidor", code = "INTERNAL_ERROR" });
         }
     }
@@ -185,26 +197,33 @@ public class TasksController : ControllerBase
 
             var updated = await _service.UpdateAsync(id, dto);
             if (updated is null)
+            {
+                _logger.LogWarning("Tarea no encontrada para actualizar: {TaskId}", id);
                 return NotFound(new { error = "Tarea no encontrada.", code = "TASK_NOT_FOUND" });
+            }
 
+            _logger.LogInformation("Tarea actualizada: {TaskId}", id);
             return Ok(ToTaskResponse(updated));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("concurrencia"))
+        {
+            _logger.LogWarning("Conflicto de concurrencia en UpdateTask({TaskId}): {Error}", id, ex.Message);
+            return Conflict(new { error = ex.Message, code = "CONCURRENCY_CONFLICT" });
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning("Validación fallida en UpdateTask({TaskId}): {Error}", id, ex.Message);
             return BadRequest(new { error = ex.Message, code = "VALIDATION_ERROR" });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado en UpdateTask({TaskId})", id);
             return StatusCode(500, new { error = "Error interno del servidor", code = "INTERNAL_ERROR" });
         }
     }
 
     /// <summary>
     /// ELIMINAR UNA TAREA
-    /// </summary>
-    [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> DeleteTask([FromRoute] Guid id)
     {
@@ -215,16 +234,22 @@ public class TasksController : ControllerBase
 
             var deleted = await _service.DeleteAsync(id);
             if (!deleted)
+            {
+                _logger.LogWarning("Tarea no encontrada para eliminar: {TaskId}", id);
                 return NotFound(new { error = "Tarea no encontrada.", code = "TASK_NOT_FOUND" });
+            }
 
+            _logger.LogInformation("Tarea eliminada: {TaskId}", id);
             return NoContent();
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning("Validación fallida en DeleteTask({TaskId}): {Error}", id, ex.Message);
             return BadRequest(new { error = ex.Message, code = "VALIDATION_ERROR" });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error inesperado en DeleteTask({TaskId})", id);
             return StatusCode(500, new { error = "Error interno del servidor", code = "INTERNAL_ERROR" });
         }
     }

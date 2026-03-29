@@ -57,8 +57,16 @@ export default function App() {
 
   useEffect(() => {
     loadTasks();
-    const interval = setInterval(loadTasks, 30000);
-    return () => clearInterval(interval);
+
+    // SSE: actualización en tiempo real
+    const es = new EventSource('/api/events');
+    es.addEventListener('task-change', () => {
+      loadTasks();
+    });
+    es.onerror = () => {
+      // Reconexión automática por el navegador
+    };
+    return () => es.close();
   }, [loadTasks]);
 
   const filteredTasks = statusFilter

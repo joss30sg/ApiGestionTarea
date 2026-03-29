@@ -36,6 +36,7 @@ out/
 .vscode/
 appsettings.*.json
 *.log
+logs/
 
 # Node.js
 node_modules/

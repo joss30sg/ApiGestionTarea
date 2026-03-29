@@ -4,10 +4,12 @@ public class ApiKeyMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly string _apiKey;
+    private readonly ILogger<ApiKeyMiddleware> _logger;
 
-    public ApiKeyMiddleware(RequestDelegate next)
+    public ApiKeyMiddleware(RequestDelegate next, ILogger<ApiKeyMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
         // Leer de variable de entorno primero, luego usar valor por defecto para desarrollo
         _apiKey = Environment.GetEnvironmentVariable("API_KEY") ?? "123456";
     }
@@ -17,11 +19,12 @@ public class ApiKeyMiddleware
         // Permitir acceso a Swagger y rutas públicas sin API Key
         var path = context.Request.Path.Value ?? "";
         
-        // Rutas públicas (no requieren API Key)
+        // Rutas públicas (no requieren API Key ni JWT)
         if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) || 
             path.StartsWith("/swagger-ui", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/api/swagger", StringComparison.OrdinalIgnoreCase) ||
             path.Contains("swagger.json", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/auth", StringComparison.OrdinalIgnoreCase) ||
             path == "/" ||
             path == "" ||
             path == "/health")
@@ -30,22 +33,32 @@ public class ApiKeyMiddleware
             return;
         }
 
-        // Buscar API Key con case-insensitive
+        // Verificar si el usuario está autenticado con JWT
+        if (context.User?.Identity?.IsAuthenticated == true)
+        {
+            await _next(context);
+            return;
+        }
+
+        // Fallback: Verificar API Key (compatibilidad legacy)
         var apiKeyHeader = context.Request.Headers.FirstOrDefault(h => 
             h.Key.Equals("X-API-Key", StringComparison.OrdinalIgnoreCase)).Value;
 
         if (string.IsNullOrEmpty(apiKeyHeader) || apiKeyHeader != _apiKey)
         {
+            _logger.LogWarning("Acceso no autorizado: {Method} {Path} desde {IP}",
+                context.Request.Method, path, context.Connection.RemoteIpAddress);
+
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
             
             var errorResponse = new
             {
                 error = "No autorizado",
-                message = "Se requiere el header 'X-API-Key' para acceder a este recurso",
-                code = "API_KEY_REQUIRED",
-                hint = "Incluya el header X-API-Key con el valor: 123456",
-                example = "curl -H 'X-API-Key: 123456' http://localhost:5000/api/tasks"
+                message = "Se requiere JWT Bearer token o header 'X-API-Key' para acceder",
+                code = "AUTH_REQUIRED",
+                hint = "Use POST /api/auth/login para obtener un JWT, o incluya X-API-Key: 123456",
+                example = "curl -H 'Authorization: Bearer <token>' http://localhost:5000/api/tasks"
             };
             
             var json = System.Text.Json.JsonSerializer.Serialize(errorResponse);

@@ -1,6 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Serilog;
+using Serilog.Events;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using TaskService.Api.Middleware;
 using TaskService.Application.Interfaces;
 using TaskService.Application.Services;
@@ -8,7 +13,27 @@ using TaskService.Infrastructure.Persistence;
 using TaskService.Infrastructure.Repositories;
 using TaskService.Domain.Entities;
 
+// Configurar Serilog antes de construir el host
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "TaskService.Api")
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File("logs/taskservice-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext} | {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
+
+try
+{
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 // Configurar Kestrel para escuchar en todas las interfaces (0.0.0.0)
 builder.WebHost.ConfigureKestrel(options =>
@@ -39,19 +64,49 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Rate Limiting temporarily disabled for execution
-// builder.Services.AddRateLimiter(options =>
-// {
-//     options.RejectionStatusCode = 429; // Too Many Requests
-//     
-//     options.AddFixedWindowLimiter(policyName: "tasks-api", opt =>
-//     {
-//         opt.PermitLimit = 100;           // Máximo 100 requests
-//         opt.Window = TimeSpan.FromSeconds(1); // Por segundo
-//         opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-//         opt.QueueLimit = 2;              // Máximo 2 en cola
-//     });
-// });
+// ✅ JWT Authentication (Sprint 3)
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "TaskServiceSecretKey2026!MinLength32Chars";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "TaskService.Api";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "TaskService.Client";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+});
+
+builder.Services.AddAuthorization();
+
+// ✅ Rate Limiting reactivado (Sprint 3) - Protección contra DoS
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429; // Too Many Requests
+    
+    options.AddPolicy("tasks-api", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromSeconds(1),
+                QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -70,8 +125,25 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "📋 Task Service API",
-        Version = "v1.0.0",
-        Description = "API REST para gestión de tareas personales. Permite listar, filtrar y ver detalles de tareas."
+        Version = "v2.0.0",
+        Description = @"API REST para gestión de tareas personales.
+
+## 🔐 Autenticación (Dual)
+- **JWT Bearer** (preferido): `POST /api/auth/login` → obtener token → usar en header `Authorization: Bearer <token>`
+- **API Key** (legacy): Header `X-API-Key: 123456`
+
+## 🔑 Credenciales de desarrollo
+- **Usuario:** `admin`
+- **Contraseña:** `admin123`
+
+## 🆕 Sprint 3 - Nuevas funcionalidades
+- ✅ JWT Authentication con expiración (15 min)
+- ✅ Refresh Tokens con rotación (7 días)
+- ✅ Optimistic Locking (ConcurrencyStamp / 409 Conflict)
+- ✅ Rate Limiting activo (100 req/s por IP)
+- ✅ Content-Type validation
+- ✅ Logging centralizado (Serilog)
+- ✅ Server-Sent Events (SSE) para tiempo real"
     });
 
     // Configurar seguridad API Key
@@ -80,7 +152,16 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Name = "X-API-Key",
         In = ParameterLocation.Header,
-        Description = "⚠️ REQUERIDO: API Key para autenticación. Valor: **123456**"
+        Description = "⚠️ API Key para autenticación legacy. Valor: **123456**"
+    });
+
+    // Configurar seguridad JWT Bearer
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "🔐 JWT Bearer Token. Obtener en POST /api/auth/login"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -95,6 +176,17 @@ builder.Services.AddSwaggerGen(options =>
                 }
             },
             new string[] { }
+        },
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] { }
         }
     });
 
@@ -105,11 +197,21 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Rate Limiting temporarily disabled
-// app.UseRateLimiter();
+// ✅ Rate Limiting activo
+app.UseRateLimiter();
 
 // ✅ CRÍTICO: Aplicar CORS antes de cualquier otro middleware
 app.UseCors("AllowAll");
+
+// Serilog: log de requests HTTP
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "{RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0}ms";
+});
+
+// ✅ JWT Authentication pipeline
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Seed de datos
 SeedDatabase(app);
@@ -129,7 +231,7 @@ app.UseSwagger(options =>
 
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Task Service API v1.0.0");
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Task Service API v2.0.0");
     options.RoutePrefix = string.Empty; // Mostrar Swagger en raíz
     options.DefaultModelsExpandDepth(2);
     options.DefaultModelExpandDepth(2);
@@ -144,8 +246,18 @@ app.UseSwaggerUI(options =>
 // Middleware de API Key DESPUÉS de Swagger para no bloquearlo
 app.UseMiddleware<ApiKeyMiddleware>();
 
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("tasks-api");
 app.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "La aplicación falló al iniciar");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 void SeedDatabase(WebApplication app)
 {

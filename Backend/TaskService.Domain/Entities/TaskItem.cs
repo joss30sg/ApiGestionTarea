@@ -61,6 +61,9 @@ public class TaskItem
     /// <summary>Fecha y hora de creación de la tarea</summary>
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>Token de concurrencia para Optimistic Locking</summary>
+    public Guid ConcurrencyStamp { get; private set; } = Guid.NewGuid();
+
     private TaskItem() { }
 
     /// <summary>
@@ -126,5 +129,6 @@ public class TaskItem
         Description = description ?? string.Empty;
         Priority = priority;
         State = state;
+        ConcurrencyStamp = Guid.NewGuid();
     }
 }
