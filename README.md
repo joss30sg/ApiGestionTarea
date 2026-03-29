@@ -4,36 +4,59 @@
 [![.NET](https://img.shields.io/badge/.NET-8-purple)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://react.dev/)
 
-Aplicación fullstack para gestionar tareas con calendario interactivo. Backend en .NET 8, Frontend en React + Vite y base de datos en memoria (no requiere SQL Server).
+Aplicación para gestionar tareas con un calendario interactivo. Puedes crear, editar, completar y eliminar tareas desde el navegador.
 
 ---
 
-## Requisitos
+## ¿Qué necesito tener instalado?
 
-| Herramienta | Versión | Comprobar con |
-|-------------|---------|---------------|
-| .NET SDK | 8.0+ | `dotnet --version` |
-| Node.js | 18+ | `node --version` |
-| npm | 9+ | `npm --version` |
+Solo necesitas dos cosas:
 
-> No necesitas instalar SQL Server. La app usa una base de datos en memoria con 33 tareas de ejemplo.
+1. **.NET 8** → Descárgalo de https://dotnet.microsoft.com/download/dotnet/8.0
+2. **Node.js 18+** → Descárgalo de https://nodejs.org
+
+Para verificar que están instalados, abre PowerShell y escribe:
+
+```powershell
+dotnet --version
+node --version
+```
+
+Si ambos muestran un número de versión, estás listo.
+
+> **No necesitas SQL Server.** La aplicación usa una base de datos en memoria que se crea sola al iniciar.
 
 ---
 
-## Inicio rápido
+## ¿Cómo ejecuto la aplicación?
 
-Necesitas **dos terminales** abiertas al mismo tiempo:
+Necesitas abrir **dos ventanas de PowerShell** (o dos terminales). Una para el backend y otra para el frontend.
 
-### Terminal 1 — Backend
+### Paso 1: Descargar el proyecto
+
+```powershell
+git clone https://github.com/joss30sg/ApiGestionTarea.git
+cd ApiGestionTarea
+```
+
+### Paso 2: Iniciar el backend (primera terminal)
 
 ```powershell
 cd Backend/TaskService.Api
 dotnet run
 ```
 
-Espera a ver el mensaje `Now listening on: http://localhost:5000`. Eso significa que el backend está listo.
+Cuando veas este mensaje, el backend está listo:
 
-### Terminal 2 — Frontend
+```
+Now listening on: http://localhost:5000
+```
+
+**No cierres esta terminal.** Déjala abierta.
+
+### Paso 3: Iniciar el frontend (segunda terminal)
+
+Abre **otra terminal** y ejecuta:
 
 ```powershell
 cd Frontend
@@ -42,129 +65,246 @@ npm run web:build
 npm run web:serve
 ```
 
-### Abrir la aplicación
+> La primera vez, `npm install` descarga las dependencias (puede tardar un poco). Las siguientes veces solo necesitas `npm run web:serve`.
 
-Abre tu navegador en **http://localhost:8080**
+### Paso 4: Abrir en el navegador
 
-Para ver la documentación de la API (Swagger): **http://localhost:5000/swagger**
+Abre tu navegador y ve a:
+
+**http://localhost:8080**
+
+¡Listo! Ya puedes usar la aplicación.
 
 ---
 
-## Autenticación
+## ¿Cómo uso la API?
 
-La API soporta dos formas de autenticarse:
+La API tiene documentación interactiva en Swagger. Ábrela en:
 
-### Opción 1: API Key (más sencillo)
+**http://localhost:5000/swagger**
 
-Agrega este header a todas tus peticiones:
+Ahí puedes probar todos los endpoints directamente desde el navegador.
+
+### Credenciales
+
+| Qué | Valor |
+|-----|-------|
+| API Key | `123456` |
+| Usuario | `admin` |
+| Contraseña | `admin123` |
+
+### Forma más fácil: API Key
+
+Agrega este header a cualquier petición:
 
 ```
 X-API-Key: 123456
 ```
 
-### Opción 2: JWT Token (más seguro)
-
-1. Obtén un token haciendo login:
+**Ejemplo en PowerShell** — ver todas las tareas:
 
 ```powershell
-# PowerShell
-$body = '{"username": "admin", "password": "admin123"}'
-$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method POST -Body $body -ContentType "application/json"
-$response.token
+Invoke-RestMethod -Uri "http://localhost:5000/api/tasks" -Headers @{ 'X-API-Key' = '123456' }
 ```
 
+**Ejemplo en curl**:
+
 ```bash
-# curl
+curl http://localhost:5000/api/tasks -H "X-API-Key: 123456"
+```
+
+### Forma más segura: JWT Token
+
+1. Haz login:
+
+```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "admin123"}'
 ```
 
-2. Usa el token en tus peticiones:
+2. Copia el `token` de la respuesta y úsalo así:
 
 ```
-Authorization: Bearer <tu-token-aquí>
+Authorization: Bearer <pega-tu-token-aquí>
 ```
 
-El token dura 15 minutos. Puedes renovarlo con `/api/auth/refresh`.
+El token dura 15 minutos. Cuando expire, renuévalo con `POST /api/auth/refresh`.
 
 ---
 
-## Endpoints de la API
+## Endpoints disponibles
 
-**URL base:** `http://localhost:5000`
+### Tareas
 
-### Tareas (`/api/tasks`)
+| Qué hace | Método | Ruta |
+|----------|--------|------|
+| Ver todas las tareas | GET | `/api/tasks` |
+| Ver una tarea | GET | `/api/tasks/{id}` |
+| Crear una tarea | POST | `/api/tasks` |
+| Editar una tarea | PUT | `/api/tasks/{id}` |
+| Eliminar una tarea | DELETE | `/api/tasks/{id}` |
 
-| Método | Ruta | Qué hace |
-|--------|------|----------|
-| GET | `/api/tasks` | Lista todas las tareas (paginado) |
-| GET | `/api/tasks/{id}` | Obtiene una tarea por su ID |
-| POST | `/api/tasks` | Crea una nueva tarea |
-| PUT | `/api/tasks/{id}` | Actualiza una tarea existente |
-| DELETE | `/api/tasks/{id}` | Elimina una tarea |
+### Filtrar tareas
 
-### Autenticación (`/api/auth`)
+Puedes filtrar agregando parámetros a la URL:
 
-| Método | Ruta | Qué hace |
-|--------|------|----------|
-| POST | `/api/auth/login` | Inicia sesión y devuelve un JWT |
-| POST | `/api/auth/refresh` | Renueva un token expirado |
+```
+/api/tasks?state=Pending              ← Solo tareas pendientes
+/api/tasks?priority=High              ← Solo prioridad alta
+/api/tasks?state=Completed&priority=Low  ← Combinar filtros
+/api/tasks?pageNumber=2&pageSize=10   ← Página 2, 10 por página
+```
 
-### Filtros disponibles (GET /api/tasks)
+**Estados válidos:** `Pending`, `InProgress`, `Completed`  
+**Prioridades válidas:** `Low`, `Medium`, `High`
 
-| Parámetro | Valores | Ejemplo |
-|-----------|---------|---------|
-| `state` | `Pending`, `InProgress`, `Completed` | `?state=Pending` |
-| `priority` | `Low`, `Medium`, `High` | `?priority=High` |
-| `pageNumber` | Número de página (desde 1) | `?pageNumber=2` |
-| `pageSize` | Tareas por página (máx. 50) | `?pageSize=20` |
-
-### Ejemplo: Crear una tarea
+### Crear una tarea (ejemplo completo)
 
 ```bash
 curl -X POST http://localhost:5000/api/tasks \
   -H "X-API-Key: 123456" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Mi primera tarea",
-    "description": "Descripción de la tarea",
-    "priority": "Medium",
+    "title": "Comprar pan",
+    "description": "Ir a la panadería",
+    "priority": "Low",
     "state": "Pending"
   }'
 ```
 
----
+### Autenticación
 
-## Modo desarrollo (con recarga automática)
-
-Si quieres que los cambios se reflejen automáticamente mientras desarrollas:
-
-```powershell
-# Terminal 1 — Backend
-cd Backend/TaskService.Api
-dotnet watch run
-
-# Terminal 2 — Frontend con Vite (hot reload)
-cd Frontend
-npm run web:dev
-```
-
-El frontend de desarrollo se abre en **http://localhost:5173**.
+| Qué hace | Método | Ruta |
+|----------|--------|------|
+| Iniciar sesión | POST | `/api/auth/login` |
+| Renovar token | POST | `/api/auth/refresh` |
 
 ---
 
 ## Ejecutar tests
 
 ```powershell
-# Tests del Backend (xUnit) — 16 tests
+# Backend (16 tests)
 cd Backend
 dotnet test
 
-# Tests del Frontend (Jest) — 45 tests
+# Frontend (45 tests)
 cd Frontend
 npm test
 ```
+
+---
+
+## Modo desarrollo (opcional)
+
+Si vas a modificar el código y quieres ver los cambios en tiempo real:
+
+```powershell
+# Terminal 1 — Backend con recarga automática
+cd Backend/TaskService.Api
+dotnet watch run
+
+# Terminal 2 — Frontend con recarga automática
+cd Frontend
+npm run web:dev
+```
+
+En este modo, el frontend se abre en **http://localhost:5173** (en vez del 8080).
+
+---
+
+## Ver la app desde el celular (navegador)
+
+Si quieres abrir la app en tu celular (conectado a la misma WiFi):
+
+1. Busca la IP de tu PC:
+
+```powershell
+ipconfig | findstr "IPv4"
+```
+
+2. En el celular, abre: `http://<tu-ip>:8080`  
+   Ejemplo: `http://192.168.1.100:8080`
+
+---
+
+## Ejecutar como app nativa en Android
+
+> Necesitas [Android Studio](https://developer.android.com/studio) instalado con un emulador configurado.
+
+### 1. Configurar el entorno
+
+Asegúrate de tener estas variables de entorno configuradas (una sola vez):
+
+```powershell
+# Ver si ya están configuradas
+echo $env:ANDROID_SDK_ROOT
+
+# Si está vacío, configúralo (ajusta tu usuario)
+[Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT', "$env:LOCALAPPDATA\Android\sdk", 'User')
+```
+
+### 2. Iniciar el emulador
+
+Abre Android Studio → Device Manager → ▶ (Play) en tu dispositivo virtual.
+
+O desde la terminal:
+
+```powershell
+# Ver emuladores disponibles
+emulator -list-avds
+
+# Iniciar uno
+emulator -avd <nombre_del_emulador>
+```
+
+### 3. Instalar dependencias y ejecutar
+
+```powershell
+cd Frontend
+npm install --legacy-peer-deps
+npx react-native run-android
+```
+
+La primera vez tarda 3-5 minutos compilando. Las siguientes veces es más rápido.
+
+### En un celular Android físico
+
+1. En tu celular: **Ajustes → Acerca del teléfono → toca "Número de compilación" 7 veces** (activa las opciones de desarrollador)
+2. Ve a **Opciones de desarrollador → activa "Depuración USB"**
+3. Conecta el celular por USB y acepta la ventana de "¿Confiar en esta PC?"
+4. Ejecuta:
+
+```powershell
+adb devices          # Verifica que detecta tu celular
+npx react-native run-android
+```
+
+> **Importante:** En el emulador Android, `localhost` no funciona. La app ya está configurada para usar `10.0.2.2` (IP especial que apunta a tu PC). En un celular físico, edita `Frontend/src/api/config.ts` y pon la IP de tu PC.
+
+---
+
+## Ejecutar como app nativa en iOS (solo macOS)
+
+> **Requisito:** Necesitas una Mac con Xcode instalado. Desde Windows no se puede compilar para iOS.
+
+### Resumen rápido
+
+```bash
+cd Frontend
+npm install --legacy-peer-deps
+
+cd ios
+pod install
+cd ..
+
+npx react-native run-ios
+```
+
+Esto abre el simulador de iPhone y ejecuta la app automáticamente.
+
+Para instrucciones detalladas (iPhone físico, firma, troubleshooting): ver [Frontend/README-ios.md](Frontend/README-ios.md)
 
 ---
 
@@ -172,94 +312,79 @@ npm test
 
 ```
 ApiGestionTarea/
-├── Backend/                          # API REST (.NET 8)
-│   ├── TaskService.Api/              # Controladores, Middleware, Configuración
-│   │   ├── Controllers/
-│   │   │   ├── TasksController.cs    # CRUD de tareas
-│   │   │   └── AuthController.cs     # Login y refresh de JWT
-│   │   ├── Middleware/
-│   │   │   └── ApiKeyMiddleware.cs   # Autenticación dual (JWT + API Key)
-│   │   ├── Program.cs               # Configuración de la app
-│   │   └── appsettings.json         # Configuración (claves, puertos)
-│   ├── TaskService.Application/      # Lógica de negocio, DTOs, Interfaces
-│   ├── TaskService.Domain/           # Entidades del dominio
-│   ├── TaskService.Infrastructure/   # Acceso a datos (EF Core InMemory)
-│   └── TaskService.Tests/            # Tests unitarios (xUnit)
 │
-├── Frontend/                         # Interfaz de usuario (React 18 + TypeScript)
-│   ├── src/web/                      # App web (calendario, modales, filtros)
-│   ├── server.js                     # Servidor Express (proxy + SSE + archivos)
-│   ├── vite.config.ts                # Configuración de Vite
-│   └── src/                          # Código compartido (API client, types)
+├── Backend/                    ← API en .NET 8
+│   ├── TaskService.Api/        ← Controladores y configuración
+│   ├── TaskService.Application/← Lógica de negocio
+│   ├── TaskService.Domain/     ← Entidades (TaskItem)
+│   ├── TaskService.Infrastructure/ ← Base de datos (InMemory)
+│   └── TaskService.Tests/      ← Tests unitarios
 │
-├── Database/                         # Scripts SQL (referencia, no requeridos)
-│   └── InitDatabase.sql              # Script completo para SQL Server
+├── Frontend/                   ← Interfaz web en React
+│   ├── src/web/                ← Componentes del calendario
+│   ├── server.js               ← Servidor Express
+│   └── vite.config.ts          ← Configuración de Vite
 │
-├── RESUMEN OWASP.md                  # Análisis de seguridad (9.6/10)
-├── MANEJO DE EDGE CASE.md            # Casos límite implementados (23/24)
-└── REPORTE TEST.md                   # Reporte de tests automatizados
+└── Database/                   ← Scripts SQL (solo referencia)
 ```
 
 ---
 
-## Características de seguridad
+## Tecnologías usadas
 
-| Protección | Detalle |
-|------------|---------|
-| Autenticación dual | JWT Bearer (15 min) + API Key legacy |
-| Rate Limiting | Máximo 100 peticiones/segundo por IP |
-| Validación XSS | Caracteres peligrosos rechazados en el dominio |
-| Optimistic Locking | Evita conflictos de edición simultánea (409 Conflict) |
-| Content-Type | Solo acepta `application/json` |
-| CORS | Configurado para permitir orígenes controlados |
-| Logging centralizado | Serilog (backend) + JSON logger (frontend) |
-
----
-
-## Funcionalidades del Frontend
-
-- **Calendario interactivo** con vista mensual y navegación entre meses
-- **Puntos de colores** indicando tareas por día según su estado
-- **Filtros** por estado (Pendiente / En Progreso / Completada)
-- **CRUD completo**: Crear, editar, completar y eliminar tareas
-- **Actualizaciones en tiempo real** via SSE (Server-Sent Events)
-- **Diseño responsivo**: Móvil, Tablet y Escritorio
-
----
-
-## Stack tecnológico
-
-| Capa | Tecnología |
-|------|-----------|
-| Backend | .NET 8, ASP.NET Core, EF Core InMemory, Serilog |
+| | Tecnología |
+|-|-----------|
+| Backend | .NET 8, ASP.NET Core, EF Core InMemory |
 | Frontend | React 18, TypeScript, Vite |
-| Servidor Web | Express.js (proxy + SSE + archivos estáticos) |
-| Autenticación | JWT Bearer + API Key |
-| Testing | xUnit (backend), Jest (frontend) |
+| Servidor | Express.js |
+| Auth | JWT + API Key |
+| Tests | xUnit + Jest |
+| Logging | Serilog |
 
 ---
 
-## Solución de problemas
+## Seguridad implementada
 
-### "El backend no arranca"
+- **Autenticación dual**: JWT (15 min) y API Key
+- **Rate Limiting**: Máx. 100 peticiones/segundo por IP
+- **Protección XSS**: Caracteres peligrosos rechazados
+- **Optimistic Locking**: Evita conflictos al editar al mismo tiempo
+- **Solo JSON**: No acepta otros formatos
+- **Logging**: Registra todas las operaciones
+
+---
+
+## ¿Algo no funciona?
+
+| Problema | Solución |
+|----------|----------|
+| `dotnet --version` no funciona | Instala .NET 8 desde https://dotnet.microsoft.com/download/dotnet/8.0 |
+| `node --version` no funciona | Instala Node.js desde https://nodejs.org |
+| El backend no arranca | Verifica que el puerto 5000 no esté ocupado |
+| El frontend dice "Error de conexión" | Asegúrate de que el backend esté corriendo primero |
+| Error 401 (No autorizado) | Agrega el header `X-API-Key: 123456` |
+| `npm install` falla | Usa `npm install --legacy-peer-deps` |
+
+### Liberar el puerto 5000 si está ocupado
 
 ```powershell
-# Verifica que tienes .NET 8
-dotnet --version
-
-# Si el puerto 5000 está ocupado, busca el proceso
 netstat -ano | findstr :5000
-taskkill /PID <PID> /F
+taskkill /PID <número-que-aparece> /F
 ```
 
-### "El frontend dice 'Error de conexión'"
+---
 
-Asegúrate de que el backend está corriendo en el puerto 5000 antes de abrir el frontend.
+## Documentación adicional
 
-### "No puedo autenticarme"
-
-- Con API Key: agrega el header `X-API-Key: 123456`
-- Con JWT: haz POST a `/api/auth/login` con `{"username": "admin", "password": "admin123"}`
+| Documento | Descripción |
+|-----------|-------------|
+| [Backend/README_BACKEND.md](Backend/README_BACKEND.md) | Detalle de la API y endpoints |
+| [Frontend/README_FRONTEND.md](Frontend/README_FRONTEND.md) | Configuración del frontend y app móvil |
+| [Frontend/README-ios.md](Frontend/README-ios.md) | Guía detallada para iOS (Xcode, iPhone físico) |
+| [Database/README_BD.md](Database/README_BD.md) | Scripts SQL para producción |
+| [RESUMEN OWASP.md](RESUMEN%20OWASP.md) | Análisis de seguridad (9.6/10) |
+| [REPORTE TEST.md](REPORTE%20TEST.md) | Reporte de tests automatizados |
+| [MANEJO DE EDGE CASE.md](MANEJO%20DE%20EDGE%20CASE.md) | Casos límite implementados |
 
 ---
 
