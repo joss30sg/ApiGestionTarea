@@ -1,300 +1,267 @@
-# ⚡ API de Gestión de Tareas — Aplicación FullStack
+# API de Gestión de Tareas
 
 [![GitHub](https://img.shields.io/badge/GitHub-joss30sg%2FApiGestionTarea-blue?logo=github)](https://github.com/joss30sg/ApiGestionTarea)
 [![.NET](https://img.shields.io/badge/.NET-8-purple)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-18-blue)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8-yellow)](https://vite.dev/)
 
-**Aplicación de gestión de tareas** con Backend .NET 8, Frontend React (Vite) y calendario interactivo. Incluye operaciones CRUD completas, diseño responsivo para móvil/tablet/escritorio y seguridad OWASP.
-
----
-
-## 📋 Requisitos Previos
-
-| Herramienta | Versión mínima | Verificar instalación |
-|-------------|---------------|----------------------|
-| **.NET SDK** | 8.0 | `dotnet --version` |
-| **Node.js** | 18+ | `node --version` |
-| **npm** | 9+ | `npm --version` |
-| **Git** | 2.x | `git --version` |
-
-> **Nota**: La base de datos usa **EF Core InMemory** — no necesitas SQL Server instalado.
+Aplicación fullstack para gestionar tareas con calendario interactivo. Backend en .NET 8, Frontend en React + Vite y base de datos en memoria (no requiere SQL Server).
 
 ---
 
-## 🚀 Instrucciones para Ejecutar la Aplicación
+## Requisitos
 
-### Paso 1: Clonar el repositorio
+| Herramienta | Versión | Comprobar con |
+|-------------|---------|---------------|
+| .NET SDK | 8.0+ | `dotnet --version` |
+| Node.js | 18+ | `node --version` |
+| npm | 9+ | `npm --version` |
+
+> No necesitas instalar SQL Server. La app usa una base de datos en memoria con 33 tareas de ejemplo.
+
+---
+
+## Inicio rápido
+
+Necesitas **dos terminales** abiertas al mismo tiempo:
+
+### Terminal 1 — Backend
+
+```powershell
+cd Backend/TaskService.Api
+dotnet run
+```
+
+Espera a ver el mensaje `Now listening on: http://localhost:5000`. Eso significa que el backend está listo.
+
+### Terminal 2 — Frontend
+
+```powershell
+cd Frontend
+npm install --legacy-peer-deps
+npm run web:build
+npm run web:serve
+```
+
+### Abrir la aplicación
+
+Abre tu navegador en **http://localhost:8080**
+
+Para ver la documentación de la API (Swagger): **http://localhost:5000/swagger**
+
+---
+
+## Autenticación
+
+La API soporta dos formas de autenticarse:
+
+### Opción 1: API Key (más sencillo)
+
+Agrega este header a todas tus peticiones:
+
+```
+X-API-Key: 123456
+```
+
+### Opción 2: JWT Token (más seguro)
+
+1. Obtén un token haciendo login:
+
+```powershell
+# PowerShell
+$body = '{"username": "admin", "password": "admin123"}'
+$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" -Method POST -Body $body -ContentType "application/json"
+$response.token
+```
 
 ```bash
-git clone https://github.com/joss30sg/ApiGestionTarea.git
-cd ApiGestionTarea
+# curl
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
 ```
 
-### Paso 2: Ejecutar el Backend (.NET 8)
+2. Usa el token en tus peticiones:
 
-```powershell
-cd Backend/TaskService.Api
-dotnet run
+```
+Authorization: Bearer <tu-token-aquí>
 ```
 
-El backend iniciará en **http://localhost:5000** con 33 tareas de ejemplo precargadas (febrero - marzo 2026).
-
-> **Swagger UI** disponible en: http://localhost:5000/swagger
-
-### Paso 3: Instalar dependencias del Frontend
-
-```powershell
-cd Frontend
-npm install --legacy-peer-deps
-```
-
-### Paso 4: Compilar el Frontend (React + Vite)
-
-```powershell
-npm run web:build
-```
-
-Esto genera la carpeta `dist/` con el build de producción.
-
-### Paso 5: Iniciar el servidor web
-
-```powershell
-npm run web:serve
-```
-
-El frontend iniciará en **http://localhost:8080**
-
-### 🎉 ¡Listo! Abre http://localhost:8080 en tu navegador
+El token dura 15 minutos. Puedes renovarlo con `/api/auth/refresh`.
 
 ---
 
-## ⚡ Inicio Rápido (Resumen)
+## Endpoints de la API
 
-```powershell
-# Terminal 1 — Backend
-cd Backend/TaskService.Api
-dotnet run
+**URL base:** `http://localhost:5000`
 
-# Terminal 2 — Frontend
-cd Frontend
-npm install --legacy-peer-deps
-npm run web:build
-npm run web:serve
-```
+### Tareas (`/api/tasks`)
 
-Abrir: **http://localhost:8080**
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| GET | `/api/tasks` | Lista todas las tareas (paginado) |
+| GET | `/api/tasks/{id}` | Obtiene una tarea por su ID |
+| POST | `/api/tasks` | Crea una nueva tarea |
+| PUT | `/api/tasks/{id}` | Actualiza una tarea existente |
+| DELETE | `/api/tasks/{id}` | Elimina una tarea |
 
----
+### Autenticación (`/api/auth`)
 
-## 🖥️ Modo Desarrollo (Hot Reload)
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| POST | `/api/auth/login` | Inicia sesión y devuelve un JWT |
+| POST | `/api/auth/refresh` | Renueva un token expirado |
 
-Para desarrollo con recarga automática:
+### Filtros disponibles (GET /api/tasks)
 
-```powershell
-# Terminal 1 — Backend
-cd Backend/TaskService.Api
-dotnet run
+| Parámetro | Valores | Ejemplo |
+|-----------|---------|---------|
+| `state` | `Pending`, `InProgress`, `Completed` | `?state=Pending` |
+| `priority` | `Low`, `Medium`, `High` | `?priority=High` |
+| `pageNumber` | Número de página (desde 1) | `?pageNumber=2` |
+| `pageSize` | Tareas por página (máx. 50) | `?pageSize=20` |
 
-# Terminal 2 — Vite dev server
-cd Frontend
-npm run web:dev
-```
-
-El servidor Vite abrirá en **http://localhost:5173** con HMR (Hot Module Replacement).
-
----
-
-## 📊 Funcionalidades
-
-### Calendario Interactivo
-- Vista mensual con navegación entre meses
-- Puntos de colores indicando tareas por día
-- Filtro por estado (Pendiente / En Progreso / Completada)
-- Detalle de tareas agrupadas por estado al seleccionar un día
-
-### CRUD Completo de Tareas
-- ✅ **Crear** — Botón flotante "＋" para nueva tarea
-- ✅ **Leer** — Calendario muestra todas las tareas con colores por estado
-- ✅ **Actualizar** — Botón "Editar" en cada tarea
-- ✅ **Eliminar** — Botón "Eliminar" con confirmación
-- ✅ **Marcar Completada** — Botón "Completar" (solo en tareas no completadas)
-
-### Diseño Responsivo
-- 📱 **Móvil** (≤480px) — Interfaz compacta, botones en columna
-- 📱 **Tablet** (481–768px) — Layout intermedio optimizado
-- 🖥️ **Escritorio** (>768px) — Vista completa, máximo 900px
-
----
-
-## 🏗️ Arquitectura del Proyecto
-
-```
-ApiGestionTarea/
-├── Backend/                        # .NET 8 — API REST
-│   ├── TaskService.Api/            # Controllers, Middleware, Program.cs
-│   ├── TaskService.Application/    # DTOs, Services, Interfaces
-│   ├── TaskService.Domain/         # Entidades (TaskItem, Enums)
-│   ├── TaskService.Infrastructure/ # Repositorio, DbContext (InMemory)
-│   └── TaskService.Tests/          # Tests unitarios (xUnit)
-│
-├── Frontend/                       # React 18 + Vite + Express
-│   ├── src/web/                    # Código fuente React
-│   │   ├── App.tsx                 # Componente principal
-│   │   ├── api.ts                  # Servicio API (fetch/create/update/delete)
-│   │   ├── styles.css              # CSS responsivo (móvil/tablet/desktop)
-│   │   ├── main.tsx                # Entry point
-│   │   └── components/             # Componentes React
-│   │       ├── Calendar.tsx        # Grilla del calendario
-│   │       ├── StatusSummary.tsx   # Resumen con filtros por estado
-│   │       ├── DayTasks.tsx        # Tareas del día seleccionado
-│   │       ├── TaskModal.tsx       # Modal crear/editar tarea
-│   │       └── ConfirmDialog.tsx   # Diálogo de confirmación
-│   ├── server.js                   # Express proxy (puerto 8080)
-│   ├── vite.config.ts              # Configuración Vite
-│   └── dist/                       # Build de producción (generado)
-│
-└── Database/                       # Scripts SQL (referencia)
-    ├── InitDatabase.sql
-    └── 0x_*.sql
-```
-
----
-
-## 🔌 API Endpoints
-
-**Base URL**: `http://localhost:5000/api/tasks`  
-**Autenticación**: Header `X-API-Key: 123456`
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/tasks` | Listar tareas (paginado, filtros) |
-| GET | `/api/tasks/{id}` | Obtener una tarea por ID |
-| POST | `/api/tasks` | Crear nueva tarea |
-| PUT | `/api/tasks/{id}` | Actualizar tarea |
-| DELETE | `/api/tasks/{id}` | Eliminar tarea |
-
-### Ejemplo: Crear tarea
+### Ejemplo: Crear una tarea
 
 ```bash
 curl -X POST http://localhost:5000/api/tasks \
   -H "X-API-Key: 123456" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Mi tarea","description":"Descripción","priority":"Medium","state":"Pending"}'
+  -d '{
+    "title": "Mi primera tarea",
+    "description": "Descripción de la tarea",
+    "priority": "Medium",
+    "state": "Pending"
+  }'
 ```
 
-### Parámetros de filtro (GET)
-- `state`: `Pending`, `InProgress`, `Completed`
-- `priority`: `Low`, `Medium`, `High`
-- `pageNumber`: Número de página (default: 1)
-- `pageSize`: Items por página (default: 10, max: 50)
-
 ---
 
-## 🔐 Seguridad
+## Modo desarrollo (con recarga automática)
 
-- **API Key** en middleware — todas las peticiones requieren `X-API-Key`
-- **Validación XSS** — caracteres peligrosos rechazados en la capa de dominio
-- **CORS** configurado
-- **Validación de entrada** con Data Annotations en DTOs
-- **Errores genéricos** — no expone stack traces en producción
-
----
-
-## 🧪 Tests
+Si quieres que los cambios se reflejen automáticamente mientras desarrollas:
 
 ```powershell
-# Tests Backend (xUnit)
-cd Backend
-dotnet test TaskService.Tests
+# Terminal 1 — Backend
+cd Backend/TaskService.Api
+dotnet watch run
 
-# Tests Frontend (Jest)
+# Terminal 2 — Frontend con Vite (hot reload)
+cd Frontend
+npm run web:dev
+```
+
+El frontend de desarrollo se abre en **http://localhost:5173**.
+
+---
+
+## Ejecutar tests
+
+```powershell
+# Tests del Backend (xUnit) — 16 tests
+cd Backend
+dotnet test
+
+# Tests del Frontend (Jest) — 45 tests
 cd Frontend
 npm test
 ```
 
 ---
 
-## 🔧 Stack Tecnológico
+## Estructura del proyecto
+
+```
+ApiGestionTarea/
+├── Backend/                          # API REST (.NET 8)
+│   ├── TaskService.Api/              # Controladores, Middleware, Configuración
+│   │   ├── Controllers/
+│   │   │   ├── TasksController.cs    # CRUD de tareas
+│   │   │   └── AuthController.cs     # Login y refresh de JWT
+│   │   ├── Middleware/
+│   │   │   └── ApiKeyMiddleware.cs   # Autenticación dual (JWT + API Key)
+│   │   ├── Program.cs               # Configuración de la app
+│   │   └── appsettings.json         # Configuración (claves, puertos)
+│   ├── TaskService.Application/      # Lógica de negocio, DTOs, Interfaces
+│   ├── TaskService.Domain/           # Entidades del dominio
+│   ├── TaskService.Infrastructure/   # Acceso a datos (EF Core InMemory)
+│   └── TaskService.Tests/            # Tests unitarios (xUnit)
+│
+├── Frontend/                         # Interfaz de usuario (React 18 + TypeScript)
+│   ├── src/web/                      # App web (calendario, modales, filtros)
+│   ├── server.js                     # Servidor Express (proxy + SSE + archivos)
+│   ├── vite.config.ts                # Configuración de Vite
+│   └── src/                          # Código compartido (API client, types)
+│
+├── Database/                         # Scripts SQL (referencia, no requeridos)
+│   └── InitDatabase.sql              # Script completo para SQL Server
+│
+├── RESUMEN OWASP.md                  # Análisis de seguridad (9.6/10)
+├── MANEJO DE EDGE CASE.md            # Casos límite implementados (23/24)
+└── REPORTE TEST.md                   # Reporte de tests automatizados
+```
+
+---
+
+## Características de seguridad
+
+| Protección | Detalle |
+|------------|---------|
+| Autenticación dual | JWT Bearer (15 min) + API Key legacy |
+| Rate Limiting | Máximo 100 peticiones/segundo por IP |
+| Validación XSS | Caracteres peligrosos rechazados en el dominio |
+| Optimistic Locking | Evita conflictos de edición simultánea (409 Conflict) |
+| Content-Type | Solo acepta `application/json` |
+| CORS | Configurado para permitir orígenes controlados |
+| Logging centralizado | Serilog (backend) + JSON logger (frontend) |
+
+---
+
+## Funcionalidades del Frontend
+
+- **Calendario interactivo** con vista mensual y navegación entre meses
+- **Puntos de colores** indicando tareas por día según su estado
+- **Filtros** por estado (Pendiente / En Progreso / Completada)
+- **CRUD completo**: Crear, editar, completar y eliminar tareas
+- **Actualizaciones en tiempo real** via SSE (Server-Sent Events)
+- **Diseño responsivo**: Móvil, Tablet y Escritorio
+
+---
+
+## Stack tecnológico
 
 | Capa | Tecnología |
 |------|-----------|
-| **Backend** | .NET 8, ASP.NET Core, EF Core InMemory |
-| **Frontend** | React 18, TypeScript, Vite 8 |
-| **Servidor Web** | Express.js (proxy + static) |
-| **Base de Datos** | EF Core InMemory (33 tareas seed) |
-| **Testing** | xUnit (.NET), Jest (React) |
+| Backend | .NET 8, ASP.NET Core, EF Core InMemory, Serilog |
+| Frontend | React 18, TypeScript, Vite |
+| Servidor Web | Express.js (proxy + SSE + archivos estáticos) |
+| Autenticación | JWT Bearer + API Key |
+| Testing | xUnit (backend), Jest (frontend) |
 
 ---
 
-## 📝 Scripts npm disponibles
+## Solución de problemas
 
-| Script | Comando | Descripción |
-|--------|---------|-------------|
-| `web:dev` | `npm run web:dev` | Servidor Vite con HMR |
-| `web:build` | `npm run web:build` | Build de producción |
-| `web:serve` | `npm run web:serve` | Express sirviendo `dist/` |
-| `test` | `npm test` | Ejecutar tests Jest |
+### "El backend no arranca"
 
-## 📞 Contacto y Soporte
+```powershell
+# Verifica que tienes .NET 8
+dotnet --version
 
-### Reportar Problemas
-- **Website**: https://github.com/Jossg36/ApiGestionTarea/issues
-- **Email**: developer@taskapp.com
-
-### ¿No puedo acceder desde WiFi?
-Ver: [Frontend/README_FRONTEND.md - Troubleshooting](Frontend/README_FRONTEND.md#troubleshooting---acceso-remoto)
-
-### ¿Cómo uso datos móviles?
-Ver: [ACCESO_DATOS_MOVILES.md](ACCESO_DATOS_MOVILES.md)
-
-### ¿Cómo cambio la API Key?
-1. Actualiza: `Backend/TaskService.Api/appsettings.json`
-2. También en: `Frontend/server.js`
-
----
-
-## 📝 Versionado
-
-```
-v1.0.0 - 14 de febrero de 2026
-├── ✅ Backend API .NET 8 funcional
-├── ✅ Frontend Web React Native responsivo
-├── ✅ Base de datos SQL Server con seed data
-├── ✅ 61 Tests automatizados (100% pasando)
-├── ✅ Seguridad OWASP 7/10 implementada
-├── ✅ 6 Edge cases críticos manejados
-├── ✅ Documentación completa con Swagger
-└── ✅ Acceso remoto para datos móviles
+# Si el puerto 5000 está ocupado, busca el proceso
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
 ```
 
----
+### "El frontend dice 'Error de conexión'"
 
-## 📄 Licencia
+Asegúrate de que el backend está corriendo en el puerto 5000 antes de abrir el frontend.
 
-Proyecto educativo - Uso interno - MIT License
+### "No puedo autenticarme"
 
----
-
-**Última actualización**: 14 de febrero de 2026  
-**Estado**: ✅ Completamente Funcional  
-**Repositorio**: https://github.com/Jossg36/ApiGestionTarea  
-**Mantenido por**: Equipo de Desarrollo
+- Con API Key: agrega el header `X-API-Key: 123456`
+- Con JWT: haz POST a `/api/auth/login` con `{"username": "admin", "password": "admin123"}`
 
 ---
 
-## 🎯 Demostración Rápida
-
-**URL de Acceso:**
-```
-WiFi Local:    http://192.168.18.8:8080
-API Swagger:   http://192.168.18.8:5000
-API Key:       123456 (en header X-API-Key)
-```
-
-**Para verlo en acción:**
-1. Conecta tu móvil al WiFi del PC
-2. Abre: http://192.168.18.8:8080
-3. ¡Listo! Usa la aplicación
-
-¡Gracias por revisar TaskService! 🚀
+**Versión**: 2.0.0 — Marzo 2026  
+**Repositorio**: https://github.com/joss30sg/ApiGestionTarea
