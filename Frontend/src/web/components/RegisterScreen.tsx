@@ -6,13 +6,16 @@ interface RegisterScreenProps {
 }
 
 function generateCaptcha(): { question: string; answer: number } {
-  const a = Math.floor(Math.random() * 20) + 1;
-  const b = Math.floor(Math.random() * 20) + 1;
+  let a = Math.floor(Math.random() * 20) + 1;
+  let b = Math.floor(Math.random() * 20) + 1;
   const ops = [
     { symbol: '+', fn: (x: number, y: number) => x + y },
     { symbol: '-', fn: (x: number, y: number) => x - y },
   ];
   const op = ops[Math.floor(Math.random() * ops.length)];
+  if (op.symbol === '-' && b > a) {
+    [a, b] = [b, a];
+  }
   return { question: `${a} ${op.symbol} ${b}`, answer: op.fn(a, b) };
 }
 

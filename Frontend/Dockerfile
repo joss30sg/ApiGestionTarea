@@ -1,17 +1,17 @@
 # ── Build stage ──
-FROM node:22-alpine AS build
+FROM node:22-alpine3.22 AS build
 WORKDIR /app
 
 # Copiar package files primero (cachear npm install)
 COPY package.json package-lock.json* ./
-RUN npm ci --production=false
+RUN npm install --legacy-peer-deps
 
 # Copiar código fuente y construir
 COPY . .
 RUN npm run web:build
 
 # ── Runtime stage ──
-FROM node:20-alpine AS runtime
+FROM node:22-alpine3.22 AS runtime
 WORKDIR /app
 
 # Crear usuario no-root
