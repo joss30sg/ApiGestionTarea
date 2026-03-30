@@ -19,7 +19,7 @@ RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 # Solo copiar lo necesario para producción
 COPY package.json package-lock.json* ./
-RUN npm ci --production && npm cache clean --force
+RUN npm install --legacy-peer-deps --omit=dev && npm cache clean --force
 
 COPY server.js .
 COPY --from=build /app/dist ./dist
