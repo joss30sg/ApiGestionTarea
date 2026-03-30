@@ -4,7 +4,7 @@ import * as config from '../config';
 describe('API Client Security', () => {
   
   it('✅ debe incluir API Key en headers', () => {
-    expect(apiClient.defaults.headers['X-API-KEY']).toBe(config.API_KEY);
+    expect(apiClient.defaults.headers['X-API-Key']).toBe(config.API_KEY);
   });
 
   it('✅ debe usar baseURL correcto', () => {
@@ -37,7 +37,7 @@ describe('API Client Security', () => {
   it('✅ debe tener headers de seguridad básicos', () => {
     const headers = apiClient.defaults.headers;
     expect(headers).toBeDefined();
-    expect(headers['X-API-KEY']).toBeDefined();
+    expect(headers['X-API-Key']).toBeDefined();
     expect(headers['Content-Type']).toContain('application/json');
     expect(headers['Accept']).toContain('application/json');
   });
