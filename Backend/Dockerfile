@@ -7,13 +7,11 @@ COPY TaskService.Domain/TaskService.Domain.csproj TaskService.Domain/
 COPY TaskService.Application/TaskService.Application.csproj TaskService.Application/
 COPY TaskService.Infrastructure/TaskService.Infrastructure.csproj TaskService.Infrastructure/
 COPY TaskService.Api/TaskService.Api.csproj TaskService.Api/
-COPY TaskService.Tests/TaskService.Tests.csproj TaskService.Tests/
-COPY TaskService.sln .
-RUN dotnet restore TaskService.sln
+RUN dotnet restore TaskService.Api/TaskService.Api.csproj
 
 # Copiar todo el código fuente
 COPY . .
-RUN dotnet publish TaskService.Api/TaskService.Api.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish TaskService.Api/TaskService.Api.csproj -c Release -o /app/publish
 
 # ── Runtime stage ──
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
