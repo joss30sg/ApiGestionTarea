@@ -19,6 +19,7 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "axios": "^1.13.5",
+    "cookie-parser": "^1.4.7",
     "expo": "^54.0.33",
     "express": "^5.2.1",
     "react": "18.2.0",

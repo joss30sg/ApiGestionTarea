@@ -12,6 +12,9 @@ export default function TaskModal({ task, onSave, onClose }: Props) {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [state, setState] = useState('Pending');
+  const [startDate, setStartDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [workedHours, setWorkedHours] = useState('0');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,11 +24,17 @@ export default function TaskModal({ task, onSave, onClose }: Props) {
       setDescription(task.description || '');
       setPriority(task.priority);
       setState(task.status);
+      setStartDate(task.startDate ? task.startDate.slice(0, 16) : '');
+      setDueDate(task.dueDate ? task.dueDate.slice(0, 16) : '');
+      setWorkedHours(String(task.workedHours ?? 0));
     } else {
       setTitle('');
       setDescription('');
       setPriority('Medium');
       setState('Pending');
+      setStartDate('');
+      setDueDate('');
+      setWorkedHours('0');
     }
   }, [task]);
 
@@ -34,11 +43,28 @@ export default function TaskModal({ task, onSave, onClose }: Props) {
       setError('El título es obligatorio.');
       return;
     }
+    if (startDate && dueDate && new Date(dueDate) < new Date(startDate)) {
+      setError('La fecha de fin no puede ser anterior a la de inicio.');
+      return;
+    }
+    const hours = parseFloat(workedHours) || 0;
+    if (hours < 0) {
+      setError('Las horas trabajadas no pueden ser negativas.');
+      return;
+    }
     setError('');
     setSaving(true);
     try {
       await onSave(
-        { title: title.trim(), description: description.trim(), priority, state },
+        {
+          title: title.trim(),
+          description: description.trim(),
+          priority,
+          state,
+          startDate: startDate ? new Date(startDate).toISOString() : null,
+          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          workedHours: hours,
+        },
         task?.id
       );
     } catch (e: any) {
@@ -85,6 +111,32 @@ export default function TaskModal({ task, onSave, onClose }: Props) {
           <option value="InProgress">En Progreso</option>
           <option value="Completed">Completada</option>
         </select>
+
+        <label htmlFor="task-start">Fecha de inicio</label>
+        <input
+          id="task-start"
+          type="datetime-local"
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+        />
+
+        <label htmlFor="task-due">Fecha de fin</label>
+        <input
+          id="task-due"
+          type="datetime-local"
+          value={dueDate}
+          onChange={e => setDueDate(e.target.value)}
+        />
+
+        <label htmlFor="task-hours">Horas trabajadas</label>
+        <input
+          id="task-hours"
+          type="number"
+          min="0"
+          step="0.5"
+          value={workedHours}
+          onChange={e => setWorkedHours(e.target.value)}
+        />
 
         {error && <div className="modal-error">{error}</div>}
 

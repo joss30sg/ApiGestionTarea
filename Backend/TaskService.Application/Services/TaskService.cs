@@ -58,7 +58,10 @@ public class TaskService : ITaskService
             dto.Title,
             dto.Description ?? string.Empty,
             dto.Priority,
-            dto.State ?? TaskState.Pending
+            dto.State ?? TaskState.Pending,
+            startDate: dto.StartDate,
+            dueDate: dto.DueDate,
+            workedHours: dto.WorkedHours
         );
         await _repository.AddAsync(task);
         return TaskDto.FromEntity(task);
@@ -76,7 +79,10 @@ public class TaskService : ITaskService
             dto.Title,
             dto.Description ?? string.Empty,
             dto.Priority,
-            dto.State ?? entity.State
+            dto.State ?? entity.State,
+            dto.StartDate,
+            dto.DueDate,
+            dto.WorkedHours
         );
         await _repository.UpdateAsync(entity);
         return TaskDto.FromEntity(entity);

@@ -61,6 +61,15 @@ public class TaskItem
     /// <summary>Fecha y hora de creación de la tarea</summary>
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>Fecha de inicio de la tarea</summary>
+    public DateTime? StartDate { get; private set; }
+
+    /// <summary>Fecha de fin de la tarea</summary>
+    public DateTime? DueDate { get; private set; }
+
+    /// <summary>Horas trabajadas en la tarea</summary>
+    public decimal WorkedHours { get; private set; }
+
     /// <summary>Token de concurrencia para Optimistic Locking</summary>
     public Guid ConcurrencyStamp { get; private set; } = Guid.NewGuid();
 
@@ -74,13 +83,9 @@ public class TaskItem
     {
         if (string.IsNullOrEmpty(input)) return;
         
-        // Caracteres peligrosos que indican posible XSS o inyección
-        char[] dangerousChars = { '<', '>', '"', '\'', '&', ';' };
-        foreach (char c in dangerousChars)
-        {
-            if (input.Contains(c))
-                throw new ArgumentException($"El campo {fieldName} contiene caracteres no permitidos: {c}");
-        }
+        // Whitelist: solo permitir caracteres alfanuméricos, espacios y puntuación segura
+        if (!System.Text.RegularExpressions.Regex.IsMatch(input, @"^[\p{L}\p{N}\s\-._,()!?:+/%@#=]+$"))
+            throw new ArgumentException($"El campo {fieldName} contiene caracteres no permitidos.");
     }
 
     /// <summary>
@@ -91,10 +96,16 @@ public class TaskItem
     /// <param name="priority">Nivel de prioridad de la tarea</param>
     /// <param name="state">Estado inicial de la tarea (por defecto: Pending)</param>
     /// <exception cref="ArgumentException">Se lanza si el título está vacío o solo contiene espacios en blanco</exception>
-    public TaskItem(string title, string description, TaskPriority priority, TaskState state = TaskState.Pending, DateTime? createdAt = null)
+    public TaskItem(string title, string description, TaskPriority priority, TaskState state = TaskState.Pending, DateTime? createdAt = null, DateTime? startDate = null, DateTime? dueDate = null, decimal workedHours = 0)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("El título es obligatorio.");
+
+        if (workedHours < 0)
+            throw new ArgumentException("Las horas trabajadas no pueden ser negativas.");
+
+        if (startDate.HasValue && dueDate.HasValue && dueDate < startDate)
+            throw new ArgumentException("La fecha de fin no puede ser anterior a la fecha de inicio.");
 
         // ✅ CRÍTICO: Validar caracteres especiales antes de asignar
         ValidateInput(title, "Title");
@@ -106,6 +117,9 @@ public class TaskItem
         Priority = priority;
         State = state;
         CreatedAt = createdAt ?? DateTime.UtcNow;
+        StartDate = startDate;
+        DueDate = dueDate;
+        WorkedHours = workedHours;
     }
 
     /// <summary>
@@ -116,10 +130,16 @@ public class TaskItem
     /// <param name="priority">Nuevo nivel de prioridad</param>
     /// <param name="state">Nuevo estado de la tarea</param>
     /// <exception cref="ArgumentException">Se lanza si el título está vacío o solo contiene espacios en blanco</exception>
-    public void Update(string title, string description, TaskPriority priority, TaskState state)
+    public void Update(string title, string description, TaskPriority priority, TaskState state, DateTime? startDate = null, DateTime? dueDate = null, decimal workedHours = 0)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("El título es obligatorio.");
+
+        if (workedHours < 0)
+            throw new ArgumentException("Las horas trabajadas no pueden ser negativas.");
+
+        if (startDate.HasValue && dueDate.HasValue && dueDate < startDate)
+            throw new ArgumentException("La fecha de fin no puede ser anterior a la fecha de inicio.");
 
         // ✅ CRÍTICO: Validar caracteres especiales en actualización
         ValidateInput(title, "Title");
@@ -129,6 +149,9 @@ public class TaskItem
         Description = description ?? string.Empty;
         Priority = priority;
         State = state;
+        StartDate = startDate;
+        DueDate = dueDate;
+        WorkedHours = workedHours;
         ConcurrencyStamp = Guid.NewGuid();
     }
 }

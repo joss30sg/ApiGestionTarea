@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 
 namespace TaskService.Api.Controllers;
@@ -10,6 +11,7 @@ namespace TaskService.Api.Controllers;
 [ApiController]
 [Route("api/auth")]
 [Produces("application/json")]
+[EnableRateLimiting("auth-strict")]
 public class AuthController : ControllerBase
 {
     private readonly IConfiguration _configuration;
@@ -50,6 +52,12 @@ public class AuthController : ControllerBase
         if (request.Password.Length < 8)
             return BadRequest(new { error = "La contraseña debe tener al menos 8 caracteres", code = "WEAK_PASSWORD" });
 
+        if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[A-Z]") ||
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[a-z]") ||
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[0-9]") ||
+            !System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[!@#$%^&*()_+\-=]"))
+            return BadRequest(new { error = "La contraseña debe contener mayúsculas, minúsculas, números y caracteres especiales", code = "WEAK_PASSWORD" });
+
         // No permitir registrar con nombres de usuarios del sistema
         var adminUser = _configuration["Auth:Username"] ?? "admin";
         if (request.Username.Equals(adminUser, StringComparison.OrdinalIgnoreCase))
@@ -89,9 +97,9 @@ public class AuthController : ControllerBase
         var adminPassword = _configuration["Auth:Password"] 
             ?? throw new InvalidOperationException("Auth:Password no configurado. Defina la variable de entorno Auth__Password.");
 
-        if (request.Username == adminUser && request.Password == adminPassword)
+        if (request.Username.Equals(adminUser, StringComparison.OrdinalIgnoreCase) && request.Password == adminPassword)
         {
-            var tokens = GenerateTokens(request.Username, "Admin");
+            var tokens = GenerateTokens(adminUser, "Admin");
             _logger.LogInformation("Login exitoso (Admin): {Username}", request.Username);
             return Ok(tokens);
         }
@@ -141,11 +149,14 @@ public class AuthController : ControllerBase
 
     private TokenResponse GenerateTokens(string username, string role)
     {
+        // Limpiar tokens expirados en cada generación para prevenir memory leak
+        CleanupExpiredTokens();
+
         var jwtKey = _configuration["Jwt:Key"] 
             ?? throw new InvalidOperationException("Jwt:Key no configurado. Defina la variable de entorno Jwt__Key.");
         var jwtIssuer = _configuration["Jwt:Issuer"] ?? "TaskService.Api";
         var jwtAudience = _configuration["Jwt:Audience"] ?? "TaskService.Client";
-        var expirationMinutes = int.Parse(_configuration["Jwt:ExpirationMinutes"] ?? "15");
+        var expirationMinutes = int.TryParse(_configuration["Jwt:ExpirationMinutes"], out var minutes) ? minutes : 15;
 
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);

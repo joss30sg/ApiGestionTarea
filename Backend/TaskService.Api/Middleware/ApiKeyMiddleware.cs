@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace TaskService.Api.Middleware;
 
 public class ApiKeyMiddleware
@@ -45,7 +48,10 @@ public class ApiKeyMiddleware
         var apiKeyHeader = context.Request.Headers.FirstOrDefault(h => 
             h.Key.Equals("X-API-Key", StringComparison.OrdinalIgnoreCase)).Value;
 
-        if (string.IsNullOrEmpty(apiKeyHeader) || apiKeyHeader != _apiKey)
+        // Comparación en tiempo constante para prevenir timing attacks
+        var apiKeyBytes = Encoding.UTF8.GetBytes(apiKeyHeader.ToString() ?? "");
+        var expectedBytes = Encoding.UTF8.GetBytes(_apiKey);
+        if (string.IsNullOrEmpty(apiKeyHeader) || !CryptographicOperations.FixedTimeEquals(apiKeyBytes, expectedBytes))
         {
             _logger.LogWarning("Acceso no autorizado: {Method} {Path} desde {IP}",
                 context.Request.Method, path, context.Connection.RemoteIpAddress);

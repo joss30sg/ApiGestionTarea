@@ -80,16 +80,20 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()        // En desarrollo: permitir cualquier origen
-              .AllowAnyMethod()         // GET, POST, PUT, DELETE, OPTIONS
-              .AllowAnyHeader()         // Cualquier header
-              .WithExposedHeaders("X-Total-Count", "X-Request-ID"); // Headers que el cliente puede leer
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? new[] { "http://localhost:8080", "http://localhost:5173" };
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .WithExposedHeaders("X-Total-Count", "X-Request-ID");
     });
 });
 
 // ✅ JWT Authentication (Sprint 3)
 var jwtKey = builder.Configuration["Jwt:Key"] 
     ?? throw new InvalidOperationException("CRÍTICO: Jwt:Key no configurado. Defina la variable de entorno Jwt__Key con una clave segura de al menos 32 caracteres.");
+if (jwtKey.Length < 32)
+    throw new InvalidOperationException("Jwt:Key debe tener al menos 32 caracteres.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "TaskService.Api";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "TaskService.Client";
 
@@ -134,6 +138,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                 QueueLimit = rateLimitQueue
             }));
+
+    // Rate limiting estricto para endpoints de autenticación (anti brute-force)
+    options.AddPolicy("auth-strict", httpContext =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddControllers()
@@ -153,7 +169,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "📋 Task Service API",
-        Version = "v2.0.0",
+        Version = "v3.0.0",
         Description = @"API REST para gestión de tareas personales.
 
 ## 🔐 Autenticación (Dual)
@@ -169,7 +185,15 @@ builder.Services.AddSwaggerGen(options =>
 - Los usuarios registrados inician sesión con rol **User** (pueden crear/editar/eliminar tareas).
 - El usuario `admin` no puede ser registrado (reservado para el administrador del sistema).
 
-## 🆕 Sprint 3 - Nuevas funcionalidades
+## 🆕 Sprint 4 - Nuevas funcionalidades
+- ✅ **Fechas de tarea**: `startDate` (inicio) y `dueDate` (vencimiento) en formato ISO 8601
+- ✅ **Horas trabajadas**: campo `workedHours` para trackeo de esfuerzo (0–9999)
+- ✅ **Notificaciones de vencimiento**: alertas automáticas (vencida 🔴, hoy 🟡, próxima 🟠)
+- ✅ **Cambio de estado**: dropdown Pending / InProgress / Completed
+- ✅ **Diseño responsivo**: campana de notificaciones adaptada a móvil, tablet y PC
+- ✅ **102 tests**: 27 backend (xUnit) + 75 frontend (Jest), cobertura >82%
+
+## Sprint 3
 - ✅ JWT Authentication con expiración (15 min)
 - ✅ Refresh Tokens con rotación (7 días)
 - ✅ Registro de usuarios con contraseñas hasheadas (PBKDF2-SHA256)
@@ -231,6 +255,10 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// ✅ Validar que no se usen claves por defecto en producción
+if (!app.Environment.IsDevelopment() && jwtKey.Contains("CHANGE_ME"))
+    throw new InvalidOperationException("No se permite usar claves por defecto en producción. Configure Jwt__Key.");
+
 // ✅ Rate Limiting activo
 app.UseRateLimiter();
 
@@ -259,32 +287,33 @@ app.UseAuthorization();
 // Seed de datos
 SeedDatabase(app);
 
-app.UseSwagger(options =>
+// ✅ Swagger solo en desarrollo (no exponer en producción)
+if (app.Environment.IsDevelopment())
 {
-    options.PreSerializeFilters.Add((swaggerDoc, httpRequest) =>
+    app.UseSwagger(options =>
     {
-        // Agregar custom servers de desarrollo
-        swaggerDoc.Servers = new List<OpenApiServer>
+        options.PreSerializeFilters.Add((swaggerDoc, httpRequest) =>
         {
-            new OpenApiServer { Url = "http://localhost:5000", Description = "Desarrollo - PC Local" },
-            new OpenApiServer { Url = "http://192.168.18.8:5000", Description = "Desarrollo - Red Local" }
-        };
+            swaggerDoc.Servers = new List<OpenApiServer>
+            {
+                new OpenApiServer { Url = "http://localhost:5000", Description = "Desarrollo - PC Local" },
+                new OpenApiServer { Url = "http://192.168.18.8:5000", Description = "Desarrollo - Red Local" }
+            };
+        });
     });
-});
 
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Task Service API v2.0.0");
-    options.RoutePrefix = string.Empty; // Mostrar Swagger en raíz
-    options.DefaultModelsExpandDepth(2);
-    options.DefaultModelExpandDepth(2);
-    options.DisplayRequestDuration();
-    options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
-    
-    // Configuración de seguridad
-    options.OAuthClientId("swagger-ui");
-    options.OAuthAppName("Task Service API - Swagger UI");
-});
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Task Service API v3.0.0");
+        options.RoutePrefix = string.Empty;
+        options.DefaultModelsExpandDepth(2);
+        options.DefaultModelExpandDepth(2);
+        options.DisplayRequestDuration();
+        options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+        options.OAuthClientId("swagger-ui");
+        options.OAuthAppName("Task Service API - Swagger UI");
+    });
+}
 
 // Middleware de API Key DESPUÉS de Swagger para no bloquearlo
 app.UseMiddleware<ApiKeyMiddleware>();
@@ -402,7 +431,10 @@ public class SchemaExamplesFilter : ISchemaFilter
                         ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Investigar y configurar OAuth2 para la aplicación"),
                         ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
                         ["status"] = new Microsoft.OpenApi.Any.OpenApiString("Pending"),
-                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z")
+                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z"),
+                        ["startDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-03-01T09:00:00Z"),
+                        ["dueDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-03-31T18:00:00Z"),
+                        ["workedHours"] = new Microsoft.OpenApi.Any.OpenApiDouble(4.5)
                     },
                     new Microsoft.OpenApi.Any.OpenApiObject
                     {
@@ -411,7 +443,10 @@ public class SchemaExamplesFilter : ISchemaFilter
                         ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Implementar pagos en línea"),
                         ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
                         ["status"] = new Microsoft.OpenApi.Any.OpenApiString("InProgress"),
-                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-10T08:15:00Z")
+                        ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-10T08:15:00Z"),
+                        ["startDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-10T08:15:00Z"),
+                        ["dueDate"] = new Microsoft.OpenApi.Any.OpenApiNull(),
+                        ["workedHours"] = new Microsoft.OpenApi.Any.OpenApiDouble(12.0)
                     }
                 }
             };
@@ -425,15 +460,31 @@ public class SchemaExamplesFilter : ISchemaFilter
                 ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Investigar y configurar OAuth2 para la aplicación"),
                 ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("High"),
                 ["status"] = new Microsoft.OpenApi.Any.OpenApiString("Pending"),
-                ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z")
+                ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z"),
+                ["startDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-03-01T09:00:00Z"),
+                ["dueDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-03-31T18:00:00Z"),
+                ["workedHours"] = new Microsoft.OpenApi.Any.OpenApiDouble(4.5)
+            };
+        }
+        else if (context.Type.Name == "TaskCreateDto")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["title"] = new Microsoft.OpenApi.Any.OpenApiString("Nueva tarea de ejemplo"),
+                ["description"] = new Microsoft.OpenApi.Any.OpenApiString("Descripción detallada de la tarea"),
+                ["priority"] = new Microsoft.OpenApi.Any.OpenApiString("Medium"),
+                ["state"] = new Microsoft.OpenApi.Any.OpenApiString("Pending"),
+                ["startDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-03-30T09:00:00Z"),
+                ["dueDate"] = new Microsoft.OpenApi.Any.OpenApiString("2026-04-15T18:00:00Z"),
+                ["workedHours"] = new Microsoft.OpenApi.Any.OpenApiDouble(0)
             };
         }
         else if (context.Type.Name == "LoginRequest")
         {
             schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
             {
-                ["username"] = new Microsoft.OpenApi.Any.OpenApiString("admin"),
-                ["password"] = new Microsoft.OpenApi.Any.OpenApiString("Admin@2026Secure!")
+                ["username"] = new Microsoft.OpenApi.Any.OpenApiString("<your_username>"),
+                ["password"] = new Microsoft.OpenApi.Any.OpenApiString("<your_password>")
             };
         }
         else if (context.Type.Name == "TokenResponse")
@@ -480,6 +531,19 @@ public class OperationExamplesFilter : IOperationFilter
 - `pageNumber`: Número de página (mín: 1)
 - `pageSize`: Tareas por página (mín: 1, máx: 50)
 
+### Campos de Respuesta (v3.0):
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | GUID | Identificador único |
+| `title` | string | Título de la tarea |
+| `description` | string | Descripción detallada |
+| `priority` | enum | Low, Medium, High |
+| `status` | enum | Pending, InProgress, Completed |
+| `createdAt` | datetime | Fecha de creación (UTC) |
+| `startDate` | datetime? | Fecha de inicio (ISO 8601) |
+| `dueDate` | datetime? | Fecha de vencimiento (ISO 8601) |
+| `workedHours` | decimal | Horas trabajadas (0–9999) |
+
 ### Ejemplo de Respuesta (200 OK):
 ```json
 {
@@ -493,7 +557,10 @@ public class OperationExamplesFilter : IOperationFilter
       ""description"": ""Investigar y configurar OAuth2"",
       ""priority"": ""High"",
       ""status"": ""Pending"",
-      ""createdAt"": ""2026-02-15T10:30:00Z""
+      ""createdAt"": ""2026-02-15T10:30:00Z"",
+      ""startDate"": ""2026-03-01T09:00:00Z"",
+      ""dueDate"": ""2026-03-31T18:00:00Z"",
+      ""workedHours"": 4.5
     }
   ]
 }
@@ -572,10 +639,114 @@ El refresh token se obtiene en la respuesta del login. Es de un solo uso y expir
   ""description"": ""Investigar y configurar OAuth2 para la aplicación"",
   ""priority"": ""High"",
   ""status"": ""Pending"",
-  ""createdAt"": ""2026-02-15T10:30:00Z""
+  ""createdAt"": ""2026-02-15T10:30:00Z"",
+  ""startDate"": ""2026-03-01T09:00:00Z"",
+  ""dueDate"": ""2026-03-31T18:00:00Z"",
+  ""workedHours"": 4.5
 }
 ```";
             operation.Summary = "🔍 Obtener detalle de tarea";
+        }
+        else if (context.MethodInfo.Name == "CreateTask")
+        {
+            operation.Description = @"➕ Crea una nueva tarea con los datos proporcionados.
+
+### Campos del Body (JSON):
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `title` | string | ✅ Sí | Título (1-200 caracteres) |
+| `description` | string | No | Descripción (máx. 2000 caracteres) |
+| `priority` | enum | ✅ Sí | Low, Medium, High |
+| `state` | enum | No | Pending (default), InProgress, Completed |
+| `startDate` | datetime | No | Fecha de inicio (ISO 8601) |
+| `dueDate` | datetime | No | Fecha de vencimiento (ISO 8601) |
+| `workedHours` | decimal | No | Horas trabajadas (0-9999, default: 0) |
+
+### Ejemplo de Request:
+```json
+{
+  ""title"": ""Configurar CI/CD"",
+  ""description"": ""Pipeline con GitHub Actions"",
+  ""priority"": ""High"",
+  ""state"": ""Pending"",
+  ""startDate"": ""2026-03-30T09:00:00Z"",
+  ""dueDate"": ""2026-04-15T18:00:00Z"",
+  ""workedHours"": 0
+}
+```
+
+### Validaciones:
+- ❌ `title` vacío o >200 caracteres → 400
+- ❌ `priority` inválida → 400
+- ❌ Contenido con `<script>` u HTML → 400 (protección XSS)
+
+### Respuesta: 201 Created con la tarea creada y header `Location` apuntando al recurso.";
+            operation.Summary = "➕ Crear nueva tarea";
+        }
+        else if (context.MethodInfo.Name == "UpdateTask")
+        {
+            operation.Description = @"✏️ Actualiza una tarea existente por su ID (GUID).
+
+### Campos actualizables (Body JSON):
+Mismos campos que POST. Los campos `startDate`, `dueDate` y `workedHours` pueden enviarse como `null` o `0`.
+
+### Optimistic Locking:
+Si la tarea fue modificada por otro usuario desde que la leíste, recibirás **409 Conflict**.
+Debes recargar la tarea y reintentar con los datos actualizados.
+
+### Ejemplo de Request:
+```json
+{
+  ""title"": ""Configurar CI/CD (actualizado)"",
+  ""description"": ""Pipeline con GitHub Actions y deploy a AWS"",
+  ""priority"": ""High"",
+  ""state"": ""InProgress"",
+  ""startDate"": ""2026-03-30T09:00:00Z"",
+  ""dueDate"": ""2026-04-10T18:00:00Z"",
+  ""workedHours"": 8.5
+}
+```
+
+### Errores Posibles:
+- `400 Bad Request`: Datos inválidos
+- `404 Not Found`: Tarea no encontrada
+- `409 Conflict`: Conflicto de concurrencia";
+            operation.Summary = "✏️ Actualizar tarea existente";
+        }
+        else if (context.MethodInfo.Name == "DeleteTask")
+        {
+            operation.Description = @"🗑️ Elimina permanentemente una tarea por su ID.
+
+### Ejemplo:
+- **DELETE /api/tasks/550e8400-e29b-41d4-a716-446655440000**
+
+### Errores Posibles:
+- `400 Bad Request`: ID no es un GUID válido
+- `404 Not Found`: La tarea no existe o ya fue eliminada
+
+### Respuesta: 204 No Content (sin cuerpo).";
+            operation.Summary = "🗑️ Eliminar tarea";
+        }
+        else if (context.MethodInfo.Name == "Register")
+        {
+            operation.Description = @"📝 Registra un nuevo usuario en el sistema.
+
+### Requisitos de contraseña:
+- Mínimo 8 caracteres
+- Al menos 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial
+
+### Ejemplo:
+```json
+{
+  ""username"": ""miusuario"",
+  ""password"": ""MiPass@2026!""
+}
+```
+
+### Errores:
+- `400`: Datos inválidos o contraseña débil
+- `409`: El nombre de usuario ya existe";
+            operation.Summary = "📝 Registrar nuevo usuario";
         }
     }
 }

@@ -32,8 +32,10 @@ public class TaskRepository : ITaskRepository
         // Obtener el total antes de paginar
         var totalCount = await query.CountAsync();
 
-        // Aplicar paginación
+        // Aplicar paginación con ordenamiento determinista
         var items = await query
+            .OrderBy(t => t.CreatedAt)
+            .ThenBy(t => t.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

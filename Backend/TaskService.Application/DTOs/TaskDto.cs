@@ -38,6 +38,22 @@ public class TaskCreateDto
     [EnumDataType(typeof(TaskState), 
         ErrorMessage = "Estado inválido. Use: Pending, InProgress o Completed")]
     public TaskState? State { get; set; } = TaskState.Pending;
+
+    /// <summary>
+    /// Fecha de inicio de la tarea (opcional, formato ISO 8601).
+    /// </summary>
+    public DateTime? StartDate { get; set; }
+
+    /// <summary>
+    /// Fecha de fin de la tarea (opcional, formato ISO 8601).
+    /// </summary>
+    public DateTime? DueDate { get; set; }
+
+    /// <summary>
+    /// Horas trabajadas en la tarea (opcional, mínimo 0).
+    /// </summary>
+    [Range(0, 9999, ErrorMessage = "Las horas trabajadas deben estar entre 0 y 9999")]
+    public decimal WorkedHours { get; set; } = 0;
 }
 
 /// <summary>
@@ -81,6 +97,10 @@ public class TaskDto
     [Display(Name = "Fecha de Creación")]
     public DateTime CreatedAt { get; set; }
 
+    public DateTime? StartDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public decimal WorkedHours { get; set; }
+
     public static TaskDto FromEntity(TaskItem task)
     {
         return new TaskDto
@@ -90,7 +110,10 @@ public class TaskDto
             Description = task.Description,
             Priority = task.Priority.ToString(),
             Status = task.State.ToString(),
-            CreatedAt = task.CreatedAt
+            CreatedAt = task.CreatedAt,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            WorkedHours = task.WorkedHours
         };
     }
 }

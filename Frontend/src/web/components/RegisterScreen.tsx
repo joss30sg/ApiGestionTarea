@@ -51,6 +51,12 @@ export default function RegisterScreen({ onRegistered, onGoToLogin }: RegisterSc
       return;
     }
 
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || 
+        !/[0-9]/.test(password) || !/[!@#$%^&*()_+\-=]/.test(password)) {
+      setError('La contraseña debe contener mayúsculas, minúsculas, números y caracteres especiales');
+      return;
+    }
+
     if (parseInt(captchaInput) !== captcha.answer) {
       setError('El resultado del captcha es incorrecto');
       refreshCaptcha();

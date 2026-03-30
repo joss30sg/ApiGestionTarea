@@ -74,11 +74,10 @@ apiClient.interceptors.response.use(
       console.warn('⚠️ [API] Respuesta vacía o inválida');
     }
 
-    // Log en desarrollo
+    // Log en desarrollo (sin datos sensibles)
     if (ENVIRONMENT === 'development') {
       console.log(`✅ [API] ${response.config.method?.toUpperCase()} ${response.config.url}`, {
         status: response.status,
-        data: response.data,
       });
     }
     return response;
@@ -107,12 +106,13 @@ apiClient.interceptors.response.use(
       );
     }
 
-    // Log de error
-    console.error(`❌ [API] Error en ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
-      status: error.response?.status,
-      message: error.message,
-      data: error.response?.data,
-    });
+    // Log de error (sin datos sensibles)
+    if (ENVIRONMENT === 'development') {
+      console.error(`❌ [API] Error en ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
+        status: error.response?.status,
+        message: error.message,
+      });
+    }
 
     // Manejo específico de errores
     if (error.response?.status === 401) {

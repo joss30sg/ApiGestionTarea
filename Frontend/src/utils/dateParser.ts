@@ -147,6 +147,10 @@ export const parseRelativeDate = (dateString: string | Date | number | null | un
 
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+
+    // Fechas futuras: mostrar fecha formateada directamente
+    if (diffMs < 0) return date.toLocaleDateString('es-ES');
+
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHour = Math.floor(diffMin / 60);

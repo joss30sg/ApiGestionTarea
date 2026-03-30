@@ -304,7 +304,10 @@ public class TasksController : ControllerBase
             Description = task.Description,
             Priority = task.Priority,
             Status = task.Status,
-            CreatedAt = task.CreatedAt
+            CreatedAt = task.CreatedAt,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            WorkedHours = task.WorkedHours
         };
     }
 
@@ -341,6 +344,12 @@ public class TaskDtoResponse
     public string Status { get; set; } = string.Empty;
     /// <summary>Fecha y hora de creación en formato ISO 8601 (UTC)</summary>
     public DateTime CreatedAt { get; set; }
+    /// <summary>Fecha de inicio de la tarea</summary>
+    public DateTime? StartDate { get; set; }
+    /// <summary>Fecha de fin de la tarea</summary>
+    public DateTime? DueDate { get; set; }
+    /// <summary>Horas trabajadas en la tarea</summary>
+    public decimal WorkedHours { get; set; }
 }
 
 /// <summary>

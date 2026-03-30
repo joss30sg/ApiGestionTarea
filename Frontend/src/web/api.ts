@@ -5,6 +5,9 @@ export interface Task {
   priority: string;
   status: string;
   createdAt: string;
+  startDate: string | null;
+  dueDate: string | null;
+  workedHours: number;
 }
 
 export interface TaskPayload {
@@ -12,6 +15,9 @@ export interface TaskPayload {
   description: string;
   priority: string;
   state: string;
+  startDate: string | null;
+  dueDate: string | null;
+  workedHours: number;
 }
 
 export interface PagedResult {
@@ -24,7 +30,9 @@ export interface PagedResult {
 const BASE = '/api/proxy/tasks';
 
 export async function fetchTasks(pageNumber = 1, pageSize = 50): Promise<PagedResult> {
-  const res = await fetch(`${BASE}?pageNumber=${pageNumber}&pageSize=${pageSize}`);
+  const res = await fetch(`${BASE}?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+    credentials: 'same-origin',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return {
@@ -39,6 +47,7 @@ export async function createTask(payload: TaskPayload): Promise<Task> {
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -52,6 +61,7 @@ export async function updateTask(id: string, payload: TaskPayload): Promise<Task
   const res = await fetch(`${BASE}/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -62,6 +72,6 @@ export async function updateTask(id: string, payload: TaskPayload): Promise<Task
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE', credentials: 'same-origin' });
   if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
 }

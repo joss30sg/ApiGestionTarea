@@ -22,6 +22,11 @@ services:
       - RateLimiting__WindowSeconds=1
     volumes:
       - backend-logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -43,12 +48,16 @@ services:
     environment:
       - NODE_ENV=production
       - BACKEND_URL=http://backend:5000
-      - API_KEY=${API_KEY:?ERROR: API_KEY es obligatorio}
     depends_on:
       backend:
         condition: service_healthy
     volumes:
       - frontend-logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     networks:
       - app-network

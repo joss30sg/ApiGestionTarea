@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 interface LoginScreenProps {
-  onLogin: (token: string) => void;
+  onLogin: (role: string) => void;
   onGoToRegister: () => void;
 }
 
@@ -20,6 +20,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: LoginScreenProp
       const res = await fetch('/api/proxy/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password }),
       });
 
@@ -29,7 +30,7 @@ export default function LoginScreen({ onLogin, onGoToRegister }: LoginScreenProp
       }
 
       const data = await res.json();
-      onLogin(data.accessToken);
+      onLogin(data.role || 'User');
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     } finally {

@@ -7,10 +7,11 @@ import DayTasks from './components/DayTasks';
 import TaskModal from './components/TaskModal';
 import ConfirmDialog from './components/ConfirmDialog';
 import ToastContainer, { showToast } from './components/ToastContainer';
-import { SkeletonSummary, SkeletonCards } from './components/Skeleton';
+import { SkeletonSummary } from './components/Skeleton';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
 import ReportView from './components/ReportView';
+import NotificationBell from './components/NotificationBell';
 
 const MONTH_NAMES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -32,9 +33,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Auth state
-  const [authToken, setAuthToken] = useState<string | null>(() =>
-    sessionStorage.getItem('authToken')
+  // Auth state (tokens manejados por httpOnly cookies en el servidor)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() =>
+    sessionStorage.getItem('isAuthenticated') === 'true'
   );
   const [userRole, setUserRole] = useState<string>(() =>
     sessionStorage.getItem('userRole') || ''
@@ -42,32 +43,25 @@ export default function App() {
   const [showReport, setShowReport] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
-  const isAuthenticated = !!authToken;
   const isAdmin = userRole === 'Admin';
 
-  function parseRole(token: string): string {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      // JWT role claim can be under different keys
-      return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
-        || payload.role || 'User';
-    } catch {
-      return 'User';
-    }
-  }
-
-  const handleLogin = (token: string) => {
-    const role = parseRole(token);
-    sessionStorage.setItem('authToken', token);
+  const handleLogin = (role: string) => {
+    setTasks([]);
+    setError('');
+    setLoading(true);
+    sessionStorage.setItem('isAuthenticated', 'true');
     sessionStorage.setItem('userRole', role);
-    setAuthToken(token);
+    setIsAuthenticated(true);
     setUserRole(role);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('authToken');
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/proxy/auth/logout', { method: 'POST' });
+    } catch { /* ignore */ }
+    sessionStorage.removeItem('isAuthenticated');
     sessionStorage.removeItem('userRole');
-    setAuthToken(null);
+    setIsAuthenticated(false);
     setUserRole('');
     setShowReport(false);
   };
@@ -94,6 +88,10 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const loadTasks = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     try {
       const result = await fetchTasks();
       setTasks(result.items);
@@ -112,21 +110,41 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     loadTasks();
 
-    // SSE: actualización en tiempo real
-    const es = new EventSource('/api/events');
-    es.addEventListener('task-change', () => {
-      loadTasks();
-    });
-    es.onerror = () => {
-      // Reconexión automática por el navegador
+    // SSE: actualización en tiempo real con reconexión controlada
+    let es: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
+
+    const connect = () => {
+      if (!isMounted) return;
+      es = new EventSource('/api/events');
+      es.addEventListener('task-change', () => {
+        loadTasks();
+      });
+      es.onerror = () => {
+        if (es) es.close();
+        // Reconectar con backoff de 5s
+        if (isMounted) {
+          reconnectTimeout = setTimeout(connect, 5000);
+        }
+      };
     };
-    return () => es.close();
-  }, [loadTasks]);
+
+    connect();
+
+    return () => {
+      isMounted = false;
+      if (es) es.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
+  }, [loadTasks, isAuthenticated]);
 
   const filteredTasks = statusFilter
     ? tasks.filter(t => t.status === statusFilter)
@@ -157,14 +175,19 @@ export default function App() {
     await loadTasks();
   };
 
-  const handleMarkComplete = async (task: Task) => {
+  const handleChangeStatus = async (task: Task, newStatus: string) => {
+    if (newStatus === task.status) return;
     await updateTask(task.id, {
       title: task.title,
       description: task.description || '',
       priority: task.priority,
-      state: 'Completed',
+      state: newStatus,
+      startDate: task.startDate,
+      dueDate: task.dueDate,
+      workedHours: task.workedHours ?? 0,
     });
-    showToast('Tarea completada', 'success');
+    const labels: Record<string, string> = { Pending: 'Pendiente', InProgress: 'En Progreso', Completed: 'Completada' };
+    showToast(`Estado cambiado a: ${labels[newStatus] || newStatus}`, 'success');
     await loadTasks();
   };
 
@@ -218,6 +241,7 @@ export default function App() {
                 📊
               </button>
             )}
+            {!isAdmin && <NotificationBell tasks={tasks} />}
             <button
               className="theme-toggle"
               onClick={() => setDarkMode(d => !d)}
@@ -302,7 +326,7 @@ export default function App() {
           tasks={dayTasks}
           onEdit={task => { setEditingTask(task); setModalOpen(true); }}
           onDelete={task => handleDeleteRequest(task.id)}
-          onComplete={handleMarkComplete}
+          onChangeStatus={handleChangeStatus}
           readOnly={isAdmin}
         />
       )}

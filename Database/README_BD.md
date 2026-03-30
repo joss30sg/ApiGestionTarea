@@ -38,7 +38,6 @@ Esto crea:
 - Base de datos `TaskServiceDB`
 - Esquema `task`
 - Tabla `task.Tasks`
-- Stored Procedures
 - Datos de prueba
 
 ### Paso 3: Configurar la conexión
@@ -74,7 +73,8 @@ Para SQL Server Express:
 | `01_CreateSchema.sql` | Crea el esquema `task` |
 | `02_CreateTables.sql` | Crea la tabla `task.Tasks` |
 | `03_SeedData.sql` | Inserta datos de ejemplo |
-| `04_StoredProcedures.sql` | Crea `sp_GetTasks` y `sp_GetTaskById` |
+
+> **Nota:** Los stored procedures fueron eliminados porque el backend usa Entity Framework Core con LINQ queries directamente, sin necesidad de procedimientos almacenados.
 
 ---
 

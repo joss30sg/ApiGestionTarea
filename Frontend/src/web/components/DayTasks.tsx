@@ -34,13 +34,13 @@ interface Props {
   tasks: Task[];
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
-  onComplete: (task: Task) => void;
+  onChangeStatus: (task: Task, newStatus: string) => void;
   readOnly?: boolean;
 }
 
 const STATUSES = ['Pending', 'InProgress', 'Completed'] as const;
 
-export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete, readOnly = false }: Props) {
+export default function DayTasks({ label, tasks, onEdit, onDelete, onChangeStatus, readOnly = false }: Props) {
   if (tasks.length === 0) {
     return (
       <div className="selected-day-section">
@@ -75,6 +75,17 @@ export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete, r
               >
                 <div className="task-title">{task.title}</div>
                 {task.description && <div className="task-description">{task.description}</div>}
+                <div className="task-dates">
+                  {task.startDate && (
+                    <span className="task-date">📅 Inicio: {new Date(task.startDate).toLocaleString()}</span>
+                  )}
+                  {task.dueDate && (
+                    <span className="task-date">🏁 Fin: {new Date(task.dueDate).toLocaleString()}</span>
+                  )}
+                  {task.workedHours > 0 && (
+                    <span className="task-date">⏱️ {task.workedHours}h trabajadas</span>
+                  )}
+                </div>
                 <div className="task-footer">
                   <span className={`badge status ${getStatusClass(task.status)}`}>
                     {STATUS_LABELS[task.status] || task.status}
@@ -85,11 +96,16 @@ export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete, r
                 </div>
                 {!readOnly && (
                   <div className="task-actions">
-                    {task.status !== 'Completed' && (
-                      <button className="btn-complete" onClick={() => onComplete(task)}>
-                        ✅ Completar
-                      </button>
-                    )}
+                    <select
+                      className="status-select"
+                      value={task.status}
+                      onChange={e => onChangeStatus(task, e.target.value)}
+                      aria-label="Cambiar estado de la tarea"
+                    >
+                      <option value="Pending">⏳ Pendiente</option>
+                      <option value="InProgress">🔧 En Progreso</option>
+                      <option value="Completed">✅ Completada</option>
+                    </select>
                     <button className="btn-edit" onClick={() => onEdit(task)}>✏️ Editar</button>
                     <button className="btn-delete" onClick={() => onDelete(task)}>🗑️ Eliminar</button>
                   </div>

@@ -15,9 +15,18 @@ public class RequestIdMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Usar el request ID del cliente si viene, o generar uno nuevo
-        var requestId = context.Request.Headers["X-Request-ID"].FirstOrDefault()
-                        ?? Guid.NewGuid().ToString("N")[..12];
+        // Generar request ID propio; si el cliente envía uno, validar formato
+        var clientRequestId = context.Request.Headers["X-Request-ID"].FirstOrDefault();
+        string requestId;
+        if (!string.IsNullOrEmpty(clientRequestId) && clientRequestId.Length <= 36 
+            && System.Text.RegularExpressions.Regex.IsMatch(clientRequestId, @"^[a-zA-Z0-9\-]+$"))
+        {
+            requestId = clientRequestId;
+        }
+        else
+        {
+            requestId = Guid.NewGuid().ToString("N")[..12];
+        }
 
         context.Items["RequestId"] = requestId;
         context.Response.Headers["X-Request-ID"] = requestId;

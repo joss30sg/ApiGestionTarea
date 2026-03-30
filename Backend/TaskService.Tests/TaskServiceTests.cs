@@ -205,4 +205,150 @@ public class TaskServiceTests
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
     }
+
+    // ===== NUEVOS TESTS v1.2: StartDate, DueDate, WorkedHours =====
+
+    [Fact]
+    public void Should_Create_Task_With_StartDate_And_DueDate()
+    {
+        var start = new System.DateTime(2026, 4, 1, 9, 0, 0);
+        var due = new System.DateTime(2026, 4, 10, 17, 0, 0);
+
+        var task = new TaskItem("Tarea con fechas", "Desc", TaskPriority.Medium,
+            TaskState.Pending, null, start, due, 0);
+
+        Assert.Equal(start, task.StartDate);
+        Assert.Equal(due, task.DueDate);
+    }
+
+    [Fact]
+    public void Should_Create_Task_With_WorkedHours()
+    {
+        var task = new TaskItem("Tarea", "Desc", TaskPriority.Low,
+            TaskState.InProgress, null, null, null, 8.5m);
+
+        Assert.Equal(8.5m, task.WorkedHours);
+    }
+
+    [Fact]
+    public void Should_Throw_When_WorkedHours_Is_Negative()
+    {
+        Assert.Throws<System.ArgumentException>(() =>
+            new TaskItem("Tarea", "Desc", TaskPriority.High,
+                TaskState.Pending, null, null, null, -1));
+    }
+
+    [Fact]
+    public void Should_Throw_When_DueDate_Before_StartDate()
+    {
+        var start = new System.DateTime(2026, 4, 10);
+        var due = new System.DateTime(2026, 4, 1);
+
+        Assert.Throws<System.ArgumentException>(() =>
+            new TaskItem("Tarea", "Desc", TaskPriority.High,
+                TaskState.Pending, null, start, due, 0));
+    }
+
+    [Fact]
+    public void Should_Allow_Null_Dates()
+    {
+        var task = new TaskItem("Tarea sin fechas", "Desc", TaskPriority.Medium);
+
+        Assert.Null(task.StartDate);
+        Assert.Null(task.DueDate);
+        Assert.Equal(0m, task.WorkedHours);
+    }
+
+    [Fact]
+    public void Should_Update_Task_With_New_Dates_And_Hours()
+    {
+        var task = new TaskItem("Original", "Desc", TaskPriority.Low);
+        var newStart = new System.DateTime(2026, 5, 1);
+        var newDue = new System.DateTime(2026, 5, 15);
+
+        task.Update("Actualizada", "Nueva desc", TaskPriority.High,
+            TaskState.InProgress, newStart, newDue, 12.5m);
+
+        Assert.Equal("Actualizada", task.Title);
+        Assert.Equal(newStart, task.StartDate);
+        Assert.Equal(newDue, task.DueDate);
+        Assert.Equal(12.5m, task.WorkedHours);
+        Assert.Equal(TaskState.InProgress, task.State);
+    }
+
+    [Fact]
+    public void Should_Update_ConcurrencyStamp_On_Update()
+    {
+        var task = new TaskItem("Tarea", "Desc", TaskPriority.Medium);
+        var oldStamp = task.ConcurrencyStamp;
+
+        task.Update("Tarea editada", "Desc editada", TaskPriority.High, TaskState.Completed);
+
+        Assert.NotEqual(oldStamp, task.ConcurrencyStamp);
+    }
+
+    [Fact]
+    public async Task Should_Create_Task_With_Dates_Via_Service()
+    {
+        var mockRepo = new Mock<ITaskRepository>();
+        mockRepo.Setup(r => r.AddAsync(It.IsAny<TaskItem>()))
+            .ReturnsAsync((TaskItem t) => t);
+
+        var service = new TaskService.Application.Services.TaskService(mockRepo.Object);
+        var dto = new TaskService.Application.DTOs.TaskCreateDto
+        {
+            Title = "Tarea con fechas",
+            Description = "Descripción",
+            Priority = TaskPriority.High,
+            StartDate = new System.DateTime(2026, 4, 1),
+            DueDate = new System.DateTime(2026, 4, 15),
+            WorkedHours = 5
+        };
+
+        var result = await service.CreateAsync(dto);
+
+        Assert.Equal("Tarea con fechas", result.Title);
+        Assert.Equal(new System.DateTime(2026, 4, 1), result.StartDate);
+        Assert.Equal(new System.DateTime(2026, 4, 15), result.DueDate);
+        Assert.Equal(5, result.WorkedHours);
+    }
+
+    [Fact]
+    public async Task Should_Update_Task_Preserving_State_When_Not_Provided()
+    {
+        var existing = new TaskItem("Tarea", "Desc", TaskPriority.Medium, TaskState.InProgress);
+        var mockRepo = new Mock<ITaskRepository>();
+        mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<System.Guid>()))
+            .ReturnsAsync(existing);
+        mockRepo.Setup(r => r.UpdateAsync(It.IsAny<TaskItem>()))
+            .Returns(System.Threading.Tasks.Task.CompletedTask);
+
+        var service = new TaskService.Application.Services.TaskService(mockRepo.Object);
+        var dto = new TaskService.Application.DTOs.TaskCreateDto
+        {
+            Title = "Editada",
+            Description = "Desc editada",
+            Priority = TaskPriority.High,
+            State = null // no se proporciona estado
+        };
+
+        var result = await service.UpdateAsync(existing.Id, dto);
+
+        Assert.NotNull(result);
+        Assert.Equal("InProgress", result!.Status);
+    }
+
+    [Fact]
+    public void Should_Reject_XSS_In_Title()
+    {
+        Assert.Throws<System.ArgumentException>(() =>
+            new TaskItem("<script>alert('xss')</script>", "Desc", TaskPriority.High));
+    }
+
+    [Fact]
+    public void Should_Reject_XSS_In_Description()
+    {
+        Assert.Throws<System.ArgumentException>(() =>
+            new TaskItem("Titulo válido", "<img onerror=alert(1)>", TaskPriority.High));
+    }
 }

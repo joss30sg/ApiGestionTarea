@@ -154,17 +154,16 @@ function generatePDF(tasks: Task[]) {
 </body>
 </html>`;
 
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const printWindow = window.open(url, '_blank');
+  const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    URL.revokeObjectURL(url);
     alert('Por favor permite las ventanas emergentes para descargar el PDF.');
     return;
   }
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
   printWindow.onload = () => {
     printWindow.print();
-    URL.revokeObjectURL(url);
   };
 }
 
