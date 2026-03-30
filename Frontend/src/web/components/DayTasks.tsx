@@ -35,11 +35,12 @@ interface Props {
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onComplete: (task: Task) => void;
+  readOnly?: boolean;
 }
 
 const STATUSES = ['Pending', 'InProgress', 'Completed'] as const;
 
-export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete }: Props) {
+export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete, readOnly = false }: Props) {
   if (tasks.length === 0) {
     return (
       <div className="selected-day-section">
@@ -69,6 +70,8 @@ export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete }:
                 key={task.id}
                 className="task-card"
                 style={{ marginBottom: 10, borderLeftColor: STATUS_COLORS[task.status] }}
+                role="article"
+                aria-label={`Tarea: ${task.title}, Estado: ${STATUS_LABELS[task.status]}, Prioridad: ${PRIORITY_LABELS[task.priority]}`}
               >
                 <div className="task-title">{task.title}</div>
                 {task.description && <div className="task-description">{task.description}</div>}
@@ -80,15 +83,17 @@ export default function DayTasks({ label, tasks, onEdit, onDelete, onComplete }:
                     {PRIORITY_LABELS[task.priority] || task.priority}
                   </span>
                 </div>
-                <div className="task-actions">
-                  {task.status !== 'Completed' && (
-                    <button className="btn-complete" onClick={() => onComplete(task)}>
-                      ✅ Completar
-                    </button>
-                  )}
-                  <button className="btn-edit" onClick={() => onEdit(task)}>✏️ Editar</button>
-                  <button className="btn-delete" onClick={() => onDelete(task)}>🗑️ Eliminar</button>
-                </div>
+                {!readOnly && (
+                  <div className="task-actions">
+                    {task.status !== 'Completed' && (
+                      <button className="btn-complete" onClick={() => onComplete(task)}>
+                        ✅ Completar
+                      </button>
+                    )}
+                    <button className="btn-edit" onClick={() => onEdit(task)}>✏️ Editar</button>
+                    <button className="btn-delete" onClick={() => onDelete(task)}>🗑️ Eliminar</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

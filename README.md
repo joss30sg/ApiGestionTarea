@@ -87,30 +87,34 @@ Ahí puedes probar todos los endpoints directamente desde el navegador.
 
 ### Credenciales
 
-| Qué | Valor |
-|-----|-------|
-| API Key | `123456` |
-| Usuario | `admin` |
-| Contraseña | `admin123` |
+La aplicación requiere autenticación para acceder. Existen dos roles:
+
+| Rol | Usuario | Contraseña | Permisos |
+|-----|---------|------------|----------|
+| **Administrador** | `admin` | `Admin@2026Secure!` | Dashboard, calendario, reportes (solo lectura) y descarga de PDF |
+| **Usuario registrado** | *(se crea en registro)* | *(la que elija el usuario)* | Dashboard, calendario, crear/editar/eliminar tareas |
+| API Key | — | `sk-T4skS3rv1c3-2026!Api` | Acceso directo a la API (header `X-API-Key`) |
+
+> **Nota:** Los usuarios normales deben registrarse desde la pantalla de registro (captcha requerido). Los administradores inician sesión con las credenciales preconfiguradas.
 
 ### Forma más fácil: API Key
 
 Agrega este header a cualquier petición:
 
 ```
-X-API-Key: 123456
+X-API-Key: sk-T4skS3rv1c3-2026!Api
 ```
 
 **Ejemplo en PowerShell** — ver todas las tareas:
 
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:5000/api/tasks" -Headers @{ 'X-API-Key' = '123456' }
+Invoke-RestMethod -Uri "http://localhost:5000/api/tasks" -Headers @{ 'X-API-Key' = 'sk-T4skS3rv1c3-2026!Api' }
 ```
 
 **Ejemplo en curl**:
 
 ```bash
-curl http://localhost:5000/api/tasks -H "X-API-Key: 123456"
+curl http://localhost:5000/api/tasks -H "X-API-Key: sk-T4skS3rv1c3-2026!Api"
 ```
 
 ### Forma más segura: JWT Token
@@ -120,7 +124,7 @@ curl http://localhost:5000/api/tasks -H "X-API-Key: 123456"
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}'
+  -d '{"username": "admin", "password": "Admin@2026Secure!"}'
 ```
 
 2. Copia el `token` de la respuesta y úsalo así:
@@ -163,7 +167,7 @@ Puedes filtrar agregando parámetros a la URL:
 
 ```bash
 curl -X POST http://localhost:5000/api/tasks \
-  -H "X-API-Key: 123456" \
+  -H "X-API-Key: sk-T4skS3rv1c3-2026!Api" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Comprar pan",
@@ -177,6 +181,7 @@ curl -X POST http://localhost:5000/api/tasks \
 
 | Qué hace | Método | Ruta |
 |----------|--------|------|
+| Registrar usuario | POST | `/api/auth/register` |
 | Iniciar sesión | POST | `/api/auth/login` |
 | Renovar token | POST | `/api/auth/refresh` |
 
@@ -479,7 +484,7 @@ Esto permite cambiar la base de datos, el servicio o el repositorio sin afectar 
 | `node --version` no funciona | Instala Node.js desde https://nodejs.org |
 | El backend no arranca | Verifica que el puerto 5000 no esté ocupado |
 | El frontend dice "Error de conexión" | Asegúrate de que el backend esté corriendo primero |
-| Error 401 (No autorizado) | Agrega el header `X-API-Key: 123456` |
+| Error 401 (No autorizado) | Agrega el header `X-API-Key: sk-T4skS3rv1c3-2026!Api` |
 | `npm install` falla | Usa `npm install --legacy-peer-deps` |
 
 ### Liberar el puerto 5000 si está ocupado

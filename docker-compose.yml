@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # ── Backend API (.NET 8) ──
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: taskservice-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - Jwt__Key=${JWT_KEY:?ERROR: JWT_KEY es obligatorio. Genere una clave segura de 32+ caracteres}
+      - Security__ApiKey=${API_KEY:?ERROR: API_KEY es obligatorio}
+      - Auth__Username=${AUTH_USER:?ERROR: AUTH_USER es obligatorio}
+      - Auth__Password=${AUTH_PASS:?ERROR: AUTH_PASS es obligatorio}
+      - Auth__UserUsername=${AUTH_NORMAL_USER:-user}
+      - Auth__UserPassword=${AUTH_NORMAL_PASS:?ERROR: AUTH_NORMAL_PASS es obligatorio}
+      - RateLimiting__PermitLimit=100
+      - RateLimiting__WindowSeconds=1
+    volumes:
+      - backend-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ── Frontend (Node.js + Vite build) ──
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: taskservice-frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=http://backend:5000
+      - API_KEY=${API_KEY:?ERROR: API_KEY es obligatorio}
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - frontend-logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  backend-logs:
+  frontend-logs:
+
+networks:
+  app-network:
+    driver: bridge

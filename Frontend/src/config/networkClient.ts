@@ -13,14 +13,14 @@
  * 
  * GET /api/tasks
  *   - Obtiene listado paginado de tareas
- *   - Headers requeridos: X-API-Key: 123456
+ *   - Headers requeridos: X-API-Key (configurar via REACT_APP_API_KEY)
  *   - Query params: pageNumber=1, pageSize=10, state, priority
  *   - Ejemplo:
  *     networkClient.get('/api/tasks?pageNumber=1&pageSize=10&state=Pending&priority=High')
  * 
  * GET /api/tasks/{id}
  *   - Obtiene detalles de una tarea específica
- *   - Headers requeridos: X-API-Key: 123456
+ *   - Headers requeridos: X-API-Key (configurar via REACT_APP_API_KEY)
  *   - Parámetro: id (GUID)
  *   - Ejemplo:
  *     networkClient.get('/api/tasks/550e8400-e29b-41d4-a716-446655440000')
@@ -28,7 +28,7 @@
  * 🔑 AUTENTICACION:
  * Todas las solicitudes a /api/* requieren el header X-API-Key
  * El networkClient lo incluye automáticamente en networkConfig.ts
- * Valor para desarrollo: 123456
+ * Configurar via variable de entorno REACT_APP_API_KEY
  */
 
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';

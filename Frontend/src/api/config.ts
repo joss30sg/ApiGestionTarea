@@ -22,8 +22,8 @@ export const BASE_URL =
     : 'http://localhost:5000/api');
 
 // API Key para autenticación
-// IMPORTANTE: Nunca hardcodear en producción
-export const API_KEY = process.env.REACT_APP_API_KEY || '123456';
+// Se configura via variable de entorno REACT_APP_API_KEY
+export const API_KEY = process.env.REACT_APP_API_KEY || '';
 
 // Entorno actual
 export const ENVIRONMENT = process.env.REACT_APP_ENV || 'development';
@@ -31,9 +31,9 @@ export const ENVIRONMENT = process.env.REACT_APP_ENV || 'development';
 // Verificar si estamos en producción
 export const IS_PRODUCTION = ENVIRONMENT === 'production';
 
-// Log de advertencia en desarrollo si se usa API Key por defecto
-if (!IS_PRODUCTION && API_KEY === '123456') {
+// Log de advertencia si no se configuró API Key
+if (!API_KEY) {
   console.warn(
-    '⚠️ [Config] Usando API Key por defecto. En producción, establece REACT_APP_API_KEY en variables de entorno.'
+    '⚠️ [Config] API_KEY no configurada. Establece REACT_APP_API_KEY en variables de entorno.'
   );
 }

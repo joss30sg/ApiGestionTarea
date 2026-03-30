@@ -4,7 +4,7 @@ const axios = require('axios');
 const fs = require('fs');
 const app = express();
 const PORT = 8080;
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 // ── Logging centralizado ──
 const LOG_DIR = path.join(__dirname, 'logs');
@@ -28,6 +28,15 @@ function log(level, msg, meta = {}) {
     Object.keys(meta).length ? meta : '');
 }
 
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // Middleware de logging para requests HTTP
 app.use((req, res, next) => {
   const start = Date.now();
@@ -49,12 +58,18 @@ const backendClient = axios.create({
   baseURL: BACKEND_URL,
   timeout: 10000,
   headers: {
-    'X-API-Key': '123456'
+    'X-API-Key': process.env.API_KEY
   }
 });
 
 // Parse JSON body
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// Validar formato UUID
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUUID(id) {
+  return UUID_REGEX.test(id);
+}
 
 // SSE: clientes conectados para tiempo real
 const sseClients = new Set();
@@ -83,6 +98,30 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const STATIC_DIR = fs.existsSync(DIST_DIR) ? DIST_DIR : PUBLIC_DIR;
 app.use(express.static(STATIC_DIR));
 
+// Proxy para AUTH - Login
+app.post('/api/proxy/auth/login', async (req, res) => {
+  try {
+    const response = await backendClient.post('/api/auth/login', req.body);
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    log('ERR', 'Proxy POST /auth/login falló', { error: error.message });
+    const status = error.response?.status || 500;
+    res.status(status).json(error.response?.data || { error: 'Error de autenticación' });
+  }
+});
+
+// Proxy para AUTH - Register
+app.post('/api/proxy/auth/register', async (req, res) => {
+  try {
+    const response = await backendClient.post('/api/auth/register', req.body);
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    log('ERR', 'Proxy POST /auth/register falló', { error: error.message });
+    const status = error.response?.status || 500;
+    res.status(status).json(error.response?.data || { error: 'Error al registrar' });
+  }
+});
+
 // Proxy para API tasks - GET
 app.get('/api/proxy/tasks', async (req, res) => {
   try {
@@ -95,8 +134,7 @@ app.get('/api/proxy/tasks', async (req, res) => {
     log('ERR', 'Proxy GET /tasks falló', { error: error.message });
     res.status(500).json({
       error: 'Error al conectar con el backend',
-      details: error.message,
-      backendUrl: BACKEND_URL
+      code: 'BACKEND_UNAVAILABLE'
     });
   }
 });
@@ -117,6 +155,9 @@ app.post('/api/proxy/tasks', async (req, res) => {
 // Proxy para API tasks - PUT (actualizar)
 app.put('/api/proxy/tasks/:id', async (req, res) => {
   try {
+    if (!isValidUUID(req.params.id)) {
+      return res.status(400).json({ error: 'ID inválido', code: 'INVALID_ID' });
+    }
     const response = await backendClient.put(`/api/tasks/${req.params.id}`, req.body);
     res.status(response.status).json(response.data);
     broadcast('task-change', { action: 'update', id: req.params.id });
@@ -130,6 +171,9 @@ app.put('/api/proxy/tasks/:id', async (req, res) => {
 // Proxy para API tasks - DELETE (eliminar)
 app.delete('/api/proxy/tasks/:id', async (req, res) => {
   try {
+    if (!isValidUUID(req.params.id)) {
+      return res.status(400).json({ error: 'ID inválido', code: 'INVALID_ID' });
+    }
     const response = await backendClient.delete(`/api/tasks/${req.params.id}`);
     res.status(204).send();
     broadcast('task-change', { action: 'delete', id: req.params.id });

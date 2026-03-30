@@ -84,7 +84,7 @@ export const TIMEOUTS = {
  */
 export const HEADERS = {
   // API Key requerida
-  'X-API-KEY': process.env.REACT_APP_API_KEY || '123456',
+  'X-API-KEY': process.env.REACT_APP_API_KEY || '',
   
   // Content-Type
   'Content-Type': 'application/json',

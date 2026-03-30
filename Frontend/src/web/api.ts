@@ -14,13 +14,25 @@ export interface TaskPayload {
   state: string;
 }
 
+export interface PagedResult {
+  items: Task[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
 const BASE = '/api/proxy/tasks';
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch(`${BASE}?pageSize=50`);
+export async function fetchTasks(pageNumber = 1, pageSize = 50): Promise<PagedResult> {
+  const res = await fetch(`${BASE}?pageNumber=${pageNumber}&pageSize=${pageSize}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return data.items || [];
+  return {
+    items: data.items || [],
+    totalCount: data.totalCount ?? 0,
+    pageNumber: data.pageNumber ?? pageNumber,
+    pageSize: data.pageSize ?? pageSize,
+  };
 }
 
 export async function createTask(payload: TaskPayload): Promise<Task> {

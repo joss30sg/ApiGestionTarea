@@ -12,11 +12,8 @@ using TaskService.Domain.Entities;
 namespace TaskService.Api.Controllers;
 
 /// <summary>
-/// API de Gestión de Tareas - Lee y filtra tareas personales
+/// Controlador para gestionar tareas.
 /// </summary>
-/// <remarks>
-/// Todos los endpoints requieren el header: **X-API-Key: 123456**
-/// </remarks>
 [ApiController]
 [Route("api/tasks")]
 [Produces("application/json")]
@@ -33,20 +30,8 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// OBTENER LISTA DE TAREAS - Con filtros y paginación
+    /// Obtiene tareas con filtros opcionales y paginación.
     /// </summary>
-    /// <remarks>
-    /// **¿Qué hace?** Devuelve un listado de tareas con opciones para filtrar y paginar.
-    /// 
-    /// **Parámetros (todos opcionales):**
-    /// - `state`: Pending, InProgress, Completed
-    /// - `priority`: Low, Medium, High
-    /// - `pageNumber`: Número de página (min: 1, default: 1)
-    /// - `pageSize`: Tareas por página (min: 1, max: 50, default: 10)
-    /// 
-    /// **Ejemplo:**
-    /// `GET /api/tasks?state=Pending&priority=High&pageNumber=1&pageSize=10`
-    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -88,17 +73,8 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// OBTENER DETALLE DE UNA TAREA - Por ID
+    /// Obtiene una tarea por su ID.
     /// </summary>
-    /// <remarks>
-    /// **¿Qué hace?** Devuelve los detalles completos de una tarea específica.
-    /// 
-    /// **Parámetro:**
-    /// - `id`: ID único de la tarea (GUID válido)
-    /// 
-    /// **Ejemplo:**
-    /// `GET /api/tasks/550e8400-e29b-41d4-a716-446655440000`
-    /// </remarks>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(TaskDtoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -147,7 +123,7 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// CREAR UNA NUEVA TAREA
+    /// Crea una nueva tarea.
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(TaskDtoResponse), StatusCodes.Status201Created)]
@@ -178,7 +154,7 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// ACTUALIZAR UNA TAREA EXISTENTE
+    /// Actualiza una tarea existente por su ID.
     /// </summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(TaskDtoResponse), StatusCodes.Status200OK)]
@@ -223,7 +199,12 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// ELIMINAR UNA TAREA
+    /// Elimina una tarea por su ID.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> DeleteTask([FromRoute] Guid id)
     {

@@ -48,7 +48,16 @@ export default function Calendar({ year, month, tasks, selectedDate, onSelectDay
     if (isSelected) cls += ' selected';
 
     cells.push(
-      <div key={key} className={cls} onClick={() => onSelectDay(key)}>
+      <div
+        key={key}
+        className={cls}
+        onClick={() => onSelectDay(key)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDay(key); } }}
+        tabIndex={0}
+        role="button"
+        aria-label={`${d} de ${new Date(year, month).toLocaleDateString('es', { month: 'long' })} ${year}${statuses ? `, ${statuses.size} tarea(s)` : ''}`}
+        aria-pressed={isSelected}
+      >
         <span className="day-num">{d}</span>
         {statuses && (
           <div className="dots">

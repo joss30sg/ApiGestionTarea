@@ -10,7 +10,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/proxy': 'http://localhost:8080',
+      '/api/proxy': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/proxy/, '/api'),
+        headers: {
+          'X-API-Key': process.env.API_KEY || '',
+        },
+      },
     },
   },
 });

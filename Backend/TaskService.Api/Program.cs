@@ -4,7 +4,9 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using Serilog;
 using Serilog.Events;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
+using System.IO.Compression;
 using System.Text;
 using TaskService.Api.Middleware;
 using TaskService.Application.Interfaces;
@@ -52,6 +54,27 @@ builder.Services.AddScoped<ITaskRepository>(provider =>
 
 builder.Services.AddScoped<ITaskService, TaskService.Application.Services.TaskService>();
 
+// ✅ Response Compression (Brotli + Gzip)
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json",
+        "text/event-stream"
+    });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.SmallestSize);
+
+// ✅ Health Checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database");
+
 // ✅ CRÍTICO: CORS explícitamente configurado (previene ataques cross-origin)
 builder.Services.AddCors(options =>
 {
@@ -60,12 +83,13 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()        // En desarrollo: permitir cualquier origen
               .AllowAnyMethod()         // GET, POST, PUT, DELETE, OPTIONS
               .AllowAnyHeader()         // Cualquier header
-              .WithExposedHeaders("X-Total-Count"); // Headers que el cliente puede leer
+              .WithExposedHeaders("X-Total-Count", "X-Request-ID"); // Headers que el cliente puede leer
     });
 });
 
 // ✅ JWT Authentication (Sprint 3)
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "TaskServiceSecretKey2026!MinLength32Chars";
+var jwtKey = builder.Configuration["Jwt:Key"] 
+    ?? throw new InvalidOperationException("CRÍTICO: Jwt:Key no configurado. Defina la variable de entorno Jwt__Key con una clave segura de al menos 32 caracteres.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "TaskService.Api";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "TaskService.Client";
 
@@ -91,7 +115,11 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// ✅ Rate Limiting reactivado (Sprint 3) - Protección contra DoS
+// ✅ Rate Limiting reactivado (Sprint 3) - Protección contra DoS (configurable)
+var rateLimitPermit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 100);
+var rateLimitWindow = builder.Configuration.GetValue("RateLimiting:WindowSeconds", 1);
+var rateLimitQueue = builder.Configuration.GetValue("RateLimiting:QueueLimit", 2);
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429; // Too Many Requests
@@ -101,10 +129,10 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
             factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
-                Window = TimeSpan.FromSeconds(1),
+                PermitLimit = rateLimitPermit,
+                Window = TimeSpan.FromSeconds(rateLimitWindow),
                 QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                QueueLimit = 2
+                QueueLimit = rateLimitQueue
             }));
 });
 
@@ -130,15 +158,21 @@ builder.Services.AddSwaggerGen(options =>
 
 ## 🔐 Autenticación (Dual)
 - **JWT Bearer** (preferido): `POST /api/auth/login` → obtener token → usar en header `Authorization: Bearer <token>`
-- **API Key** (legacy): Header `X-API-Key: 123456`
+- **API Key** (legacy): Header `X-API-Key`
 
-## 🔑 Credenciales de desarrollo
-- **Usuario:** `admin`
-- **Contraseña:** `admin123`
+## 🔑 Credenciales
+- **Administrador**: usuario `admin` con credenciales preconfiguradas (ver README).
+- **Usuarios normales**: deben registrarse primero con `POST /api/auth/register` y luego iniciar sesión.
+
+## 📝 Registro de usuarios
+- `POST /api/auth/register` — Crear cuenta nueva (usuario mín. 3 caracteres, contraseña mín. 8 caracteres).
+- Los usuarios registrados inician sesión con rol **User** (pueden crear/editar/eliminar tareas).
+- El usuario `admin` no puede ser registrado (reservado para el administrador del sistema).
 
 ## 🆕 Sprint 3 - Nuevas funcionalidades
 - ✅ JWT Authentication con expiración (15 min)
 - ✅ Refresh Tokens con rotación (7 días)
+- ✅ Registro de usuarios con contraseñas hasheadas (PBKDF2-SHA256)
 - ✅ Optimistic Locking (ConcurrencyStamp / 409 Conflict)
 - ✅ Rate Limiting activo (100 req/s por IP)
 - ✅ Content-Type validation
@@ -152,7 +186,7 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Name = "X-API-Key",
         In = ParameterLocation.Header,
-        Description = "⚠️ API Key para autenticación legacy. Valor: **123456**"
+        Description = "⚠️ API Key para autenticación legacy. Se configura en appsettings o variable de entorno API_KEY."
     });
 
     // Configurar seguridad JWT Bearer
@@ -200,6 +234,15 @@ var app = builder.Build();
 // ✅ Rate Limiting activo
 app.UseRateLimiter();
 
+// ✅ Response Compression
+app.UseResponseCompression();
+
+// ✅ Request ID para trazabilidad
+app.UseMiddleware<RequestIdMiddleware>();
+
+// ✅ Security Headers (OWASP)
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
 // ✅ CRÍTICO: Aplicar CORS antes de cualquier otro middleware
 app.UseCors("AllowAll");
 
@@ -245,6 +288,27 @@ app.UseSwaggerUI(options =>
 
 // Middleware de API Key DESPUÉS de Swagger para no bloquearlo
 app.UseMiddleware<ApiKeyMiddleware>();
+
+// ✅ Health Check endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds + "ms"
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds + "ms"
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
 
 app.MapControllers().RequireRateLimiting("tasks-api");
 app.Run();
@@ -364,6 +428,31 @@ public class SchemaExamplesFilter : ISchemaFilter
                 ["createdAt"] = new Microsoft.OpenApi.Any.OpenApiString("2026-02-15T10:30:00Z")
             };
         }
+        else if (context.Type.Name == "LoginRequest")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["username"] = new Microsoft.OpenApi.Any.OpenApiString("admin"),
+                ["password"] = new Microsoft.OpenApi.Any.OpenApiString("Admin@2026Secure!")
+            };
+        }
+        else if (context.Type.Name == "TokenResponse")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["accessToken"] = new Microsoft.OpenApi.Any.OpenApiString("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."),
+                ["refreshToken"] = new Microsoft.OpenApi.Any.OpenApiString("BRLkuaG1JxJioz3O..."),
+                ["expiresIn"] = new Microsoft.OpenApi.Any.OpenApiInteger(900),
+                ["tokenType"] = new Microsoft.OpenApi.Any.OpenApiString("Bearer")
+            };
+        }
+        else if (context.Type.Name == "RefreshRequest")
+        {
+            schema.Example = new Microsoft.OpenApi.Any.OpenApiObject
+            {
+                ["refreshToken"] = new Microsoft.OpenApi.Any.OpenApiString("BRLkuaG1JxJioz3OwrBxsbdEq94V6J4pbyPFosedpou0Lhp819GknLHMNmxqnfbeTbAd9oIDIOYFq5U8XrUa1Q==")
+            };
+        }
     }
 }
 
@@ -410,6 +499,58 @@ public class OperationExamplesFilter : IOperationFilter
 }
 ```";
             operation.Summary = "📋 Listar tareas (con filtros)";
+        }
+        else if (context.MethodInfo.Name == "Login")
+        {
+            operation.Description = @"🔐 Inicia sesión y obtiene un JWT Access Token + Refresh Token.
+
+### Credenciales disponibles:
+| Rol | Usuario | Contraseña |
+|-----|---------|------------|
+| **Admin** | `admin` | `Admin@2026Secure!` |
+| **User** | `user` | `User@2026Secure!` |
+
+### Ejemplo de Request:
+```json
+{
+  ""username"": ""admin"",
+  ""password"": ""Admin@2026Secure!""
+}
+```
+
+### Ejemplo de Respuesta (200 OK):
+```json
+{
+  ""accessToken"": ""eyJhbGciOiJIUzI1NiIs..."",
+  ""refreshToken"": ""BRLkuaG1JxJioz3O..."",
+  ""expiresIn"": 900,
+  ""tokenType"": ""Bearer""
+}
+```
+
+### Cómo usar el token:
+1. Copia el valor de `accessToken` de la respuesta
+2. Haz clic en el botón **Authorize** 🔒 (arriba)
+3. Escribe: `Bearer <tu-token>` y confirma
+4. Ahora todas las peticiones incluirán el token automáticamente
+
+### Errores Posibles:
+- `401 Unauthorized`: Usuario o contraseña incorrectos";
+            operation.Summary = "🔐 Iniciar sesión (obtener JWT Token)";
+        }
+        else if (context.MethodInfo.Name == "Refresh")
+        {
+            operation.Description = @"🔄 Renueva el JWT Access Token usando un Refresh Token válido.
+
+### Ejemplo de Request:
+```json
+{
+  ""refreshToken"": ""BRLkuaG1JxJioz3OwrBxsbdEq94V6J4p...""
+}
+```
+
+El refresh token se obtiene en la respuesta del login. Es de un solo uso y expira en 7 días.";
+            operation.Summary = "🔄 Renovar JWT Token";
         }
         else if (operation.OperationId == "GetTaskById")
         {

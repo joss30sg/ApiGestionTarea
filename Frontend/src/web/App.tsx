@@ -2,9 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Task, fetchTasks, createTask, updateTask, deleteTask, TaskPayload } from './api';
 import Calendar from './components/Calendar';
 import StatusSummary from './components/StatusSummary';
+import Dashboard from './components/Dashboard';
 import DayTasks from './components/DayTasks';
 import TaskModal from './components/TaskModal';
 import ConfirmDialog from './components/ConfirmDialog';
+import ToastContainer, { showToast } from './components/ToastContainer';
+import { SkeletonSummary, SkeletonCards } from './components/Skeleton';
+import LoginScreen from './components/LoginScreen';
+import RegisterScreen from './components/RegisterScreen';
+import ReportView from './components/ReportView';
 
 const MONTH_NAMES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -26,6 +32,58 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Auth state
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    sessionStorage.getItem('authToken')
+  );
+  const [userRole, setUserRole] = useState<string>(() =>
+    sessionStorage.getItem('userRole') || ''
+  );
+  const [showReport, setShowReport] = useState(false);
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+
+  const isAuthenticated = !!authToken;
+  const isAdmin = userRole === 'Admin';
+
+  function parseRole(token: string): string {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      // JWT role claim can be under different keys
+      return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+        || payload.role || 'User';
+    } catch {
+      return 'User';
+    }
+  }
+
+  const handleLogin = (token: string) => {
+    const role = parseRole(token);
+    sessionStorage.setItem('authToken', token);
+    sessionStorage.setItem('userRole', role);
+    setAuthToken(token);
+    setUserRole(role);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('userRole');
+    setAuthToken(null);
+    setUserRole('');
+    setShowReport(false);
+  };
+
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -37,12 +95,12 @@ export default function App() {
 
   const loadTasks = useCallback(async () => {
     try {
-      const items = await fetchTasks();
-      setTasks(items);
+      const result = await fetchTasks();
+      setTasks(result.items);
       setError('');
       // Position on the month of the first task
-      if (items.length > 0) {
-        const first = new Date(items[0].createdAt);
+      if (result.items.length > 0) {
+        const first = new Date(result.items[0].createdAt);
         if (!isNaN(first.getTime())) {
           setYear(first.getFullYear());
           setMonth(first.getMonth());
@@ -50,6 +108,7 @@ export default function App() {
       }
     } catch {
       setError('Error al cargar tareas');
+      showToast('Error al cargar tareas', 'error');
     } finally {
       setLoading(false);
     }
@@ -88,8 +147,10 @@ export default function App() {
   const handleSave = async (payload: TaskPayload, id?: string) => {
     if (id) {
       await updateTask(id, payload);
+      showToast('Tarea actualizada correctamente', 'success');
     } else {
       await createTask(payload);
+      showToast('Tarea creada correctamente', 'success');
     }
     setModalOpen(false);
     setEditingTask(null);
@@ -103,6 +164,7 @@ export default function App() {
       priority: task.priority,
       state: 'Completed',
     });
+    showToast('Tarea completada', 'success');
     await loadTasks();
   };
 
@@ -119,6 +181,7 @@ export default function App() {
     if (pendingAction) await pendingAction();
     setConfirmOpen(false);
     setPendingAction(null);
+    showToast('Tarea eliminada', 'info');
   };
 
   const dayTasks = selectedDate
@@ -132,43 +195,106 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {!isAuthenticated ? (
+        authView === 'login' ? (
+          <LoginScreen onLogin={handleLogin} onGoToRegister={() => setAuthView('register')} />
+        ) : (
+          <RegisterScreen onRegistered={() => setAuthView('login')} onGoToLogin={() => setAuthView('login')} />
+        )
+      ) : (
+        <>
+      <ToastContainer />
       <header className="header">
-        <h1>⚡ API de Gestión de Tareas</h1>
+        <div className="header-row">
+          <h1>⚡ API de Gestión de Tareas</h1>
+          <div className="header-buttons">
+            {isAdmin && (
+              <button
+                className="report-toggle-btn"
+                onClick={() => setShowReport(v => !v)}
+                title="Ver reporte"
+                aria-label="Ver reporte de tareas"
+              >
+                📊
+              </button>
+            )}
+            <button
+              className="theme-toggle"
+              onClick={() => setDarkMode(d => !d)}
+              title={darkMode ? 'Modo claro' : 'Modo oscuro'}
+              aria-label={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button
+              className="logout-btn"
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              🚪
+            </button>
+          </div>
+        </div>
         <div className="task-count">
           {loading
             ? 'Cargando...'
             : error
             ? error
             : `${tasks.length} tarea${tasks.length !== 1 ? 's' : ''} registrada${tasks.length !== 1 ? 's' : ''}`}
+          {isAdmin && <span className="role-badge admin">Admin</span>}
+          {!isAdmin && <span className="role-badge user">Usuario</span>}
         </div>
       </header>
 
-      <StatusSummary
-        tasks={tasks}
-        activeFilter={statusFilter}
-        onToggle={s => setStatusFilter(prev => (prev === s ? null : s))}
-      />
+      {loading ? (
+        <SkeletonSummary />
+      ) : (
+        <>
+          <div className="main-layout">
+            {/* Left column: Dashboard + Priority */}
+            <div className="main-left">
+              <Dashboard
+                tasks={tasks}
+                activeFilter={statusFilter}
+                onToggle={s => setStatusFilter(prev => (prev === s ? null : s))}
+              />
+            </div>
 
-      <div className="month-nav">
-        <button onClick={handlePrevMonth} aria-label="Mes anterior">‹</button>
-        <span className="month-title">{MONTH_NAMES[month]} {year}</span>
-        <button onClick={handleNextMonth} aria-label="Mes siguiente">›</button>
-      </div>
+            {/* Right column: Calendar */}
+            <div className="main-right">
+              <div className="calendar-section">
+                <div className="month-nav">
+                  <button onClick={handlePrevMonth} aria-label="Mes anterior">‹</button>
+                  <span className="month-title">{MONTH_NAMES[month]} {year}</span>
+                  <button onClick={handleNextMonth} aria-label="Mes siguiente">›</button>
+                </div>
 
-      <div className="week-header">
-        {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => (
-          <span key={d}>{d}</span>
-        ))}
-      </div>
+                <div className="week-header">
+                  {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => (
+                    <span key={d}>{d}</span>
+                  ))}
+                </div>
 
-      <Calendar
-        year={year}
-        month={month}
-        tasks={filteredTasks}
-        selectedDate={selectedDate}
-        onSelectDay={setSelectedDate}
-        toDateKey={toDateKey}
-      />
+                <Calendar
+                  year={year}
+                  month={month}
+                  tasks={filteredTasks}
+                  selectedDate={selectedDate}
+                  onSelectDay={setSelectedDate}
+                  toDateKey={toDateKey}
+                />
+              </div>
+            </div>
+          </div>
+
+          <StatusSummary
+            tasks={tasks}
+            activeFilter={statusFilter}
+            onToggle={s => setStatusFilter(prev => (prev === s ? null : s))}
+          />
+        </>
+      )}
 
       {selectedDate && (
         <DayTasks
@@ -177,19 +303,22 @@ export default function App() {
           onEdit={task => { setEditingTask(task); setModalOpen(true); }}
           onDelete={task => handleDeleteRequest(task.id)}
           onComplete={handleMarkComplete}
+          readOnly={isAdmin}
         />
       )}
 
-      <button
-        className="fab-add"
-        onClick={() => { setEditingTask(null); setModalOpen(true); }}
-        title="Nueva tarea"
-        aria-label="Crear nueva tarea"
-      >
-        ＋
-      </button>
+      {!isAdmin && (
+        <button
+          className="fab-add"
+          onClick={() => { setEditingTask(null); setModalOpen(true); }}
+          title="Nueva tarea"
+          aria-label="Crear nueva tarea"
+        >
+          ＋
+        </button>
+      )}
 
-      {modalOpen && (
+      {!isAdmin && modalOpen && (
         <TaskModal
           task={editingTask}
           onSave={handleSave}
@@ -197,12 +326,18 @@ export default function App() {
         />
       )}
 
-      {confirmOpen && (
+      {!isAdmin && confirmOpen && (
         <ConfirmDialog
           message={confirmMsg}
           onConfirm={handleConfirm}
           onCancel={() => { setConfirmOpen(false); setPendingAction(null); }}
         />
+      )}
+
+      {isAdmin && showReport && (
+        <ReportView tasks={tasks} onClose={() => setShowReport(false)} />
+      )}
+        </>
       )}
     </div>
   );

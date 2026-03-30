@@ -6,12 +6,13 @@ public class ApiKeyMiddleware
     private readonly string _apiKey;
     private readonly ILogger<ApiKeyMiddleware> _logger;
 
-    public ApiKeyMiddleware(RequestDelegate next, ILogger<ApiKeyMiddleware> logger)
+    public ApiKeyMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<ApiKeyMiddleware> logger)
     {
         _next = next;
         _logger = logger;
-        // Leer de variable de entorno primero, luego usar valor por defecto para desarrollo
-        _apiKey = Environment.GetEnvironmentVariable("API_KEY") ?? "123456";
+        _apiKey = Environment.GetEnvironmentVariable("API_KEY")
+            ?? configuration["Security:ApiKey"]
+            ?? throw new InvalidOperationException("API_KEY no configurada. Defina la variable de entorno API_KEY o Security:ApiKey en appsettings.");
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -57,8 +58,7 @@ public class ApiKeyMiddleware
                 error = "No autorizado",
                 message = "Se requiere JWT Bearer token o header 'X-API-Key' para acceder",
                 code = "AUTH_REQUIRED",
-                hint = "Use POST /api/auth/login para obtener un JWT, o incluya X-API-Key: 123456",
-                example = "curl -H 'Authorization: Bearer <token>' http://localhost:5000/api/tasks"
+                hint = "Use POST /api/auth/login para obtener un JWT, o incluya el header X-API-Key"
             };
             
             var json = System.Text.Json.JsonSerializer.Serialize(errorResponse);
