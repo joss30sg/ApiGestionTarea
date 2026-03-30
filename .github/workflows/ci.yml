@@ -1,0 +1,58 @@
+name: CI - Build & Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (.NET 8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: Backend
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: Backend
+
+      - name: Run tests
+        run: dotnet test TaskService.Tests/TaskService.Tests.csproj --no-build --configuration Release --verbosity normal
+        working-directory: Backend
+
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: Frontend
+
+      - name: Build
+        run: npm run web:build
+        working-directory: Frontend
+
+      - name: Run tests
+        run: npx jest --no-cache --ci
+        working-directory: Frontend
