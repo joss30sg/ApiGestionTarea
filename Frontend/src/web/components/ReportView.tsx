@@ -112,8 +112,8 @@ function generatePDF(tasks: Task[]) {
     .priority-high { background: #fee2e2; color: #991b1b; }
     .empty { color: #999; font-style: italic; padding: 12px; }
     .footer { text-align: center; margin-top: 30px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
-    @page { size: auto; margin: 10mm; }
-    @media print { body { padding: 20px; } }
+    @page { margin: 0; }
+    @media print { body { padding: 15mm 10mm; } }
   </style>
 </head>
 <body>
