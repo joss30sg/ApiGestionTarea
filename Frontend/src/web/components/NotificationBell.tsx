@@ -128,8 +128,8 @@ export default function NotificationBell({ tasks }: Props) {
         aria-label={`Notificaciones${notifications.length > 0 ? `, ${notifications.length} alertas` : ''}`}
       >
         🔔
-        {notifications.length > 0 && (
-          <span className="notification-badge">{notifications.length}</span>
+        {unreadCount > 0 && (
+          <span className="notification-badge">{unreadCount}</span>
         )}
       </button>
 
