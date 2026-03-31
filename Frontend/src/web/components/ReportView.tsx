@@ -157,20 +157,15 @@ function generatePDF(tasks: Task[]) {
 
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = 'none';
-  iframe.style.left = '-9999px';
-  iframe.src = url;
-  document.body.appendChild(iframe);
-  iframe.onload = () => {
-    iframe.contentWindow?.print();
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-      URL.revokeObjectURL(url);
-    }, 1000);
+  const printWindow = window.open(url, '_blank');
+  if (!printWindow) {
+    alert('Por favor permite las ventanas emergentes para descargar el PDF.');
+    URL.revokeObjectURL(url);
+    return;
+  }
+  printWindow.onload = () => {
+    printWindow.print();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 }
 
