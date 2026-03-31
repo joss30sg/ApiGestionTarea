@@ -305,7 +305,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Task Service API v3.0.0");
-        options.RoutePrefix = string.Empty;
+        options.RoutePrefix = "swagger";
         options.DefaultModelsExpandDepth(2);
         options.DefaultModelExpandDepth(2);
         options.DisplayRequestDuration();
