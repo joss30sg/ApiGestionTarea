@@ -177,8 +177,8 @@ builder.Services.AddSwaggerGen(options =>
 - **API Key** (legacy): Header `X-API-Key`
 
 ## 🔑 Credenciales
-- **Administrador**: usuario `admin` con credenciales preconfiguradas (ver README).
-- **Usuarios normales**: deben registrarse primero con `POST /api/auth/register` y luego iniciar sesión.
+- **Administrador**: usuario `admin`, contraseña `Admin@2026Secure!` (preconfigurado).
+- **Usuarios normales**: deben registrarse primero con `POST /api/auth/register` y luego iniciar sesión con sus propias credenciales.
 
 ## 📝 Registro de usuarios
 - `POST /api/auth/register` — Crear cuenta nueva (usuario mín. 3 caracteres, contraseña mín. 8 caracteres).

@@ -83,8 +83,11 @@ public class AuthController : ControllerBase
     /// LOGIN - Obtener JWT y Refresh Token
     /// </summary>
     /// <remarks>
-    /// Administradores: usan credenciales preconfiguradas (ver README).
-    /// Usuarios normales: deben registrarse primero con POST /api/auth/register.
+    /// **Administrador**: usuario `admin`, contraseña `Admin@2026Secure!`
+    /// 
+    /// **Usuarios registrados**: inician sesión con las credenciales que crearon en POST /api/auth/register.
+    /// 
+    /// Retorna un AccessToken (JWT, 15 min) y un RefreshToken (7 días).
     /// </remarks>
     [HttpPost("login")]
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
