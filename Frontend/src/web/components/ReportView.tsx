@@ -175,6 +175,52 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
+function generateExcel(tasks: Task[]) {
+  const groups = groupByStatus(tasks);
+  const BOM = '\uFEFF';
+  const rows: string[][] = [];
+
+  rows.push(['Reporte de Tareas']);
+  rows.push([`Generado: ${new Date().toLocaleString('es-ES')}`]);
+  rows.push([]);
+  rows.push(['Resumen']);
+  rows.push(['Pendientes', String(groups.Pending.length)]);
+  rows.push(['En Progreso', String(groups.InProgress.length)]);
+  rows.push(['Completadas', String(groups.Completed.length)]);
+  rows.push(['Total', String(tasks.length)]);
+  rows.push([]);
+
+  for (const [status, list] of Object.entries(groups)) {
+    rows.push([STATUS_LABELS[status] || status]);
+    rows.push(['Título', 'Descripción', 'Prioridad', 'Estado', 'Fecha Creación']);
+    for (const t of list) {
+      rows.push([
+        t.title,
+        t.description || '—',
+        PRIORITY_LABELS[t.priority] || t.priority,
+        STATUS_LABELS[t.status] || t.status,
+        formatDate(t.createdAt),
+      ]);
+    }
+    if (list.length === 0) rows.push(['No hay tareas en este estado.']);
+    rows.push([]);
+  }
+
+  const csvContent = rows.map(row =>
+    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte-tareas-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function ReportView({ tasks, onClose }: ReportViewProps) {
   const groups = groupByStatus(tasks);
 
@@ -186,6 +232,9 @@ export default function ReportView({ tasks, onClose }: ReportViewProps) {
             <h2>📊 Reporte de Tareas</h2>
           </div>
           <div className="report-actions">
+            <button className="report-download-btn" onClick={() => generateExcel(tasks)}>
+              📊 Exportar Excel
+            </button>
             <button className="report-download-btn" onClick={() => generatePDF(tasks)}>
               📥 Descargar PDF
             </button>
