@@ -571,11 +571,12 @@ public class OperationExamplesFilter : IOperationFilter
         {
             operation.Description = @"🔐 Inicia sesión y obtiene un JWT Access Token + Refresh Token.
 
-### Credenciales disponibles:
+### Credenciales de administrador:
 | Rol | Usuario | Contraseña |
 |-----|---------|------------|
 | **Admin** | `admin` | `Admin@2026Secure!` |
-| **User** | `user` | `User@2026Secure!` |
+
+> **Usuarios normales**: deben registrarse primero con `POST /api/auth/register` y luego iniciar sesión con sus propias credenciales.
 
 ### Ejemplo de Request:
 ```json
