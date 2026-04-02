@@ -117,7 +117,9 @@ export class NetworkClient {
     this.axiosInstance = axios.create({
       baseURL: this.urlList[0],
       timeout: TIMEOUTS.READ,
-      headers: NetworkConfig.headers
+      headers: NetworkConfig.headers,
+      // ✅ SEGURIDAD: Prevenir SSRF por URLs absolutas (CVE-2025-27152)
+      allowAbsoluteUrls: false,
     });
     
     // Configurar interceptores
@@ -158,10 +160,12 @@ export class NetworkClient {
             RETRY_CONFIG.MAX_DELAY
           );
           
-          console.log(
-            `[Network] Reintentando solicitud (${config.__retryCount}/${RETRY_CONFIG.MAX_ATTEMPTS}) ` +
-            `en ${delay}ms - ${config.url}`
-          );
+          if (__DEV__ || process.env.REACT_APP_ENV === 'development') {
+            console.log(
+              `[Network] Reintentando solicitud (${config.__retryCount}/${RETRY_CONFIG.MAX_ATTEMPTS}) ` +
+              `en ${delay}ms`
+            );
+          }
           
           // Esperar antes de reintentar
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -187,7 +191,26 @@ export class NetworkClient {
     this.currentUrlIndex++;
     if (this.currentUrlIndex < this.urlList.length) {
       const nextUrl = this.urlList[this.currentUrlIndex];
-      console.log(`[Network] Intentando con URL alternativa: ${nextUrl}`);
+      
+      // ✅ SEGURIDAD: Validar que la URL de fallback pertenece a un origen permitido
+      try {
+        const parsed = new URL(nextUrl);
+        const trustedHosts = ['localhost', '10.0.2.2', '127.0.0.1'];
+        const isPrivateIP = /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./;
+        const isTrusted = trustedHosts.includes(parsed.hostname) || 
+                          isPrivateIP.test(parsed.hostname) ||
+                          parsed.protocol === 'https:';
+        if (!isTrusted) {
+          console.warn(`[Network] URL de fallback no confiable descartada`);
+          return;
+        }
+      } catch {
+        return;
+      }
+      
+      if (__DEV__ || process.env.REACT_APP_ENV === 'development') {
+        console.log(`[Network] Intentando con URL alternativa`);
+      }
       
       // Actualizar baseURL
       this.axiosInstance.defaults.baseURL = nextUrl;

@@ -51,6 +51,8 @@ export const apiClient: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
+  // ✅ SEGURIDAD: Prevenir SSRF por URLs absolutas (CVE-2025-27152)
+  allowAbsoluteUrls: false,
 });
 
 /**
@@ -83,8 +85,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
-    // Verificar si ya hemos reintentado
+    // ✅ SEGURIDAD: Proteger contra error.config undefined
     const config = error.config as any;
+    if (!config) {
+      return Promise.reject(error);
+    }
     config.retryCount = config.retryCount || 0;
 
     // Decidir si reintentar

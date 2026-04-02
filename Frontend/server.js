@@ -70,7 +70,9 @@ const backendClient = axios.create({
   timeout: 10000,
   headers: {
     'X-API-Key': process.env.API_KEY
-  }
+  },
+  // Prevenir SSRF por URLs absolutas (CVE-2025-27152)
+  allowAbsoluteUrls: false
 });
 
 // Parse JSON body

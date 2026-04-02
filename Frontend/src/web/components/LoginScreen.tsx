@@ -12,6 +12,16 @@ export default function LoginScreen({ onLogin, onGoToRegister }: LoginScreenProp
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Extraer rol del payload JWT (sin validar firma, solo lectura de metadata)
+  const extractRoleFromToken = (token: string): string => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role || 'User';
+    } catch {
+      return 'User';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -30,7 +40,9 @@ export default function LoginScreen({ onLogin, onGoToRegister }: LoginScreenProp
       }
 
       const data = await res.json();
-      onLogin(data.role || 'User');
+      // server.js devuelve { role }, backend directo devuelve { accessToken }
+      const role = data.role || (data.accessToken ? extractRoleFromToken(data.accessToken) : 'User');
+      onLogin(role);
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     } finally {
